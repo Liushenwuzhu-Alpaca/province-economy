@@ -74,24 +74,6 @@ df = get_indicators(2024)
 
 该接口会返回指定年份的省域经济指标数据，当前数据表包含 31 个省份和 15 个指标。
 
-## 数据质量检查
-
-数据清洗质量检查接口是：
-
-```python
-from src.data import check_cached_indicators
-
-report = check_cached_indicators(2024)
-```
-
-该接口会检查：
-
-- 31 个省级行政区是否覆盖完整；
-- 是否存在重复省份；
-- 是否存在异常省份名称；
-- 15 个指标列是否完整；
-- 各列缺失值数量和缺失率。
-
 年鉴图片下载和 OCR 解析的复现工具放在 `src/data/tools` 目录下：
 
 - `download_yearbook_sources.py`

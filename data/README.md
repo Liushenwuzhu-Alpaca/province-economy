@@ -1,98 +1,143 @@
 # 数据目录说明
 
-本目录用于存放省域经济综合竞争力评价项目的数据文件，包括原始数据、OCR 中间结果和清洗后的缓存结果。
+本目录存放省域经济综合竞争力评价项目的原始数据、中间产物、分析结果和清洗缓存。
 
-## raw/nbs_exports
+```
+data/
+├── raw/                  # 原始数据
+│   ├── nbs_exports/      #   国家统计局导出的官方 CSV
+│   ├── yearbook_2023/    #   2023 年统计年鉴 JPG 表格
+│   ├── yearbook_2024/    #   2024 年统计年鉴 JPG 表格
+│   ├── ocr_outputs/      #   OCR 识别后的原始指标表
+│   └── archive/          #   早期下载/测试的历史文件
+├── results/              # 分析结果缓存 (新增)
+│   ├── 2024_pca/         #   2024 年 PCA 聚类结果
+│   └── 2024_nopca/       #   2024 年无 PCA 聚类结果
+└── ../data_cache/         # 清洗后的最终指标数据
+    ├── indicators_2023.csv
+    ├── indicators_2023_metadata.csv
+    ├── indicators_2024.csv
+    └── indicators_2024_metadata.csv
+```
 
-该目录存放从国家统计局数据平台下载的官方 CSV 文件。
+---
 
-程序会优先读取这里的文件，用于覆盖或补充 OCR 结果。当前主要使用的文件包括：
+## 一、原始数据 (raw/)
 
-- `按照年份的GDP.csv`：各省地区生产总值，覆盖 2021-2024 年。
-- `第一产业.csv`：各省第一产业增加值，覆盖 2021-2024 年。
-- `第二产业.csv`：各省第二产业增加值，覆盖 2021-2024 年。
-- `分省年度数据2024.csv`：2024 年 GDP、三次产业增加值、人均 GDP 等截面数据。
-- `分省年度数据指数2024.csv`：2024 年地区生产总值指数，用于计算 GDP 增速。
-- `分省年度数据消费指数.csv`：2024 年居民消费价格指数。
-- `分省年度数据可支配收入.csv`：各省居民人均可支配收入，覆盖 2016-2024 年。
-- `分省年度数据消费支出.csv`：各省居民人均消费支出，覆盖 2016-2024 年。
+### nbs_exports/
 
-以下文件暂时作为辅助数据保留，后续如果扩展人口、城镇化或就业相关指标时可以使用：
+国家统计局官方导出 CSV。程序优先读取这里的文件，用于覆盖或补充 OCR 结果。
 
-- `分省年度数据人口.csv`
-- `分省年度数据就业.csv`
-- `分省年度数据出生率.csv`
-- `2025GDP.csv`
+| 文件                              | 内容                       | 覆盖年份   |
+| --------------------------------- | -------------------------- | ---------- |
+| `按照年份的GDP.csv`                 | 各省地区生产总值             | 2021-2024  |
+| `第一产业.csv`                     | 各省第一产业增加值           | 2021-2024  |
+| `第二产业.csv`                     | 各省第二产业增加值           | 2021-2024  |
+| `分省年度数据2024.csv`             | 2024 年 GDP + 三次产业 + 人均 | 2024       |
+| `分省年度数据指数2024.csv`         | 2024 年地区生产总值指数      | 2024       |
+| `分省年度数据消费指数.csv`          | 居民消费价格指数              | 2024       |
+| `分省年度数据可支配收入.csv`        | 居民人均可支配收入            | 2016-2024  |
+| `分省年度数据消费支出.csv`          | 居民人均消费支出              | 2016-2024  |
+| `分省年度数据人口.csv`             | (辅助) 人口数据              | -          |
+| `分省年度数据就业.csv`             | (辅助) 就业数据              | -          |
+| `分省年度数据出生率.csv`           | (辅助) 出生率               | -          |
+| `2025GDP.csv`                     | (辅助) 2025 年 GDP          | 2025       |
 
-## raw/yearbook_2023 和 raw/yearbook_2024
+### yearbook_2023 / yearbook_2024
 
-这两个目录存放从《中国统计年鉴》官网下载的 JPG 表格图片。
+《中国统计年鉴》官网下载的 JPG 表格图片。OCR 识别后用于补充 CSV 中缺失的指标（消费零售总额、财政收支、固定资产投资、失业率等）。
 
-这些图片是 OCR 识别的原始来源，主要用于补充国家统计局 CSV 中没有直接下载到的指标，例如社会消费品零售总额、地方一般公共预算收入、固定资产投资增速等。
+### ocr_outputs/
 
-## raw/ocr_outputs
+OCR 识别后与官方 CSV 合并前的中间产物：
 
-该目录存放 OCR 识别后的原始指标表。
+- `province_indicators_2023.csv` + `_metadata.csv`
+- `province_indicators_2024.csv` + `_metadata.csv`
 
-主要文件包括：
+### archive/
 
-- `province_indicators_2023.csv`
-- `province_indicators_2023_metadata.csv`
-- `province_indicators_2024.csv`
-- `province_indicators_2024_metadata.csv`
+早期下载/测试的文件，主流程不依赖。
 
-这些文件还不是最终清洗结果，而是 OCR 和官方 CSV 合并之前或合并后的原始中间表。
+---
 
-## raw/archive
+## 二、分析结果缓存 (results/)
 
-该目录存放早期下载、测试或已经被更完整文件替代的数据。
+每次运行分析后，结果自动保存到 `data/results/{year}_{method}/`，包含：
 
-这些文件保留用于追溯数据来源和下载过程，但主程序不会直接依赖它们。
+| 文件           | 内容                                         |
+| -------------- | -------------------------------------------- |
+| `scores.csv`     | 熵权法评分排名 (province, score, rank)       |
+| `clusters.csv`   | K-Means 聚类标签 (province, label)           |
+| `weights.csv`    | 各指标熵权权重 (indicator, weight)           |
+| `meta.json`      | 元信息 (silhouette, pca_var, 方法等)          |
 
-## data_cache
+二次运行默认加载缓存，跳过重复计算。使用 `--recompute` 强制重算。
 
-该目录存放最终清洗后的指标数据，是后续综合评价模型应该直接读取的数据。
+---
 
-主要交付文件包括：
+## 三、对外数据接口
 
-- `indicators_2023.csv`
-- `indicators_2023_metadata.csv`
-- `indicators_2024.csv`
-- `indicators_2024_metadata.csv`
-
-其中 `indicators_YYYY.csv` 的行是 31 个省级行政区，列是经济指标；`metadata` 文件记录每个指标的中文含义、单位和说明。
-
-## 对外数据接口
-
-项目中统一的数据接口是：
+### 数据获取（给所有模块）
 
 ```python
 from src.data import get_indicators
 
-df = get_indicators(2024)
+df = get_indicators(2024)       # 返回 31 省 × 15 指标的原始量纲 DataFrame
+df = get_indicators(2023)
 ```
 
-该接口会返回指定年份的省域经济指标数据，当前数据表包含 31 个省份和 15 个指标。
+### 分析结果获取（给可视化模块）
 
-年鉴图片下载和 OCR 解析的复现工具放在 `src/data/tools` 目录下：
+可视化同学不需要直接操作原始数据，只需从缓存加载或调用分析接口：
 
-- `download_yearbook_sources.py`
-- `parse_yearbook_images.py`
+```python
+# 方式一: 从缓存加载 (推荐, 秒出)
+from src.models.cache import load_results
 
-当前 15 个指标包括：
+result = load_results(2024, use_pca=True)  # 返回 dict
 
-- `gdp`：地区生产总值，单位为亿元。
-- `gdp_growth`：GDP 增速，单位为 %。
-- `primary_value`：第一产业增加值，单位为亿元。
-- `secondary_value`：第二产业增加值，单位为亿元。
-- `tertiary_value`：第三产业增加值，单位为亿元。
-- `primary_share`：第一产业占 GDP 比重，单位为 %。
-- `secondary_share`：第二产业占 GDP 比重，单位为 %。
-- `tertiary_share`：第三产业占 GDP 比重，单位为 %。
-- `retail`：社会消费品零售总额，单位为亿元。
-- `income`：居民人均可支配收入，单位为元。
-- `consumption_expenditure`：居民人均消费支出，单位为元。
-- `cpi`：居民消费价格指数，单位为上年=100。
-- `unemployment`：失业率代理指标，单位为 %。
-- `fixed_invest`：固定资产投资增速，单位为 %。
-- `fiscal_revenue`：地方一般公共预算收入，单位为亿元。
+# 方式二: 从零分析 (首次或 --recompute)
+from src.models.analyzer import analyze
+from src.data import get_indicators
+
+df = get_indicators(2024)
+result = analyze(df)
+```
+
+分析结果字典结构（可视化直接消费）：
+
+| 键            | 类型            | 形状           |
+| ------------- | --------------- | -------------- |
+| `scores`        | `pd.DataFrame`    | (31, 3)        |
+| `clusters`      | `pd.DataFrame`    | (31, 2)        |
+| `weights`       | `pd.Series`       | (10,)          |
+| `pca_xy`        | `np.ndarray`      | (31, 2) 或 None |
+| `pca_var`       | `list[float]`     | [2] 或 None     |
+| `silhouette`    | `float`           | —               |
+| `centers`       | `np.ndarray`      | (k, 2) 或 (k,m) |
+
+---
+
+## 四、指标对照
+
+| 代码                        | 中文名称               | 单位     | 分析用? | 方向  |
+| --------------------------- | ---------------------- | -------- | :-----: | :---: |
+| `gdp`                         | 地区生产总值           | 亿元     | ✅       | 正向  |
+| `gdp_growth`                  | GDP 增速                | %        | ✅       | 正向  |
+| `retail`                      | 社会消费品零售总额     | 亿元     | ✅       | 正向  |
+| `income`                      | 居民人均可支配收入     | 元       | ✅       | 正向  |
+| `consumption_expenditure`     | 居民人均消费支出       | 元       | ✅       | 正向  |
+| `tertiary_share`              | 第三产业占 GDP 比重     | %        | ✅       | 正向  |
+| `fixed_invest`                | 固定资产投资增速       | %        | ✅       | 正向  |
+| `fiscal_revenue`              | 地方一般公共预算收入   | 亿元     | ✅       | 正向  |
+| `cpi`                         | 居民消费价格指数       | 上年=100 | ✅       | 负向* |
+| `unemployment`                | 失业率代理指标         | %        | ✅       | 负向  |
+| `primary_value`               | 第一产业增加值         | 亿元     | ❌       | —    |
+| `secondary_value`             | 第二产业增加值         | 亿元     | ❌       | —    |
+| `tertiary_value`              | 第三产业增加值         | 亿元     | ❌       | —    |
+| `primary_share`               | 第一产业占 GDP 比重     | %        | ❌       | —    |
+| `secondary_share`             | 第二产业占 GDP 比重     | %        | ❌       | —    |
+
+> \* CPI 在分析中被转换为 |CPI - 100|（偏离稳定值越远越差）后作为负向指标处理。
+>
+> 指标选择逻辑和方向定义位于 `src/models/analyzer.py` 的 `ANALYSIS_INDICATORS` 和 `DIRECTIONS`。

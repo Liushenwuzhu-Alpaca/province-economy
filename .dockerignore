@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+wheels/
+
+# Virtual environment
+.venv/
+
+# Version control
+.git/
+.gitignore
+
+# Raw yearbook images (not needed in Docker - ~6.5MB JPGs)
+data/raw/yearbook_*/
+
+# Generated outputs (runtime artifacts, volume-mounted)
+output/
+data/results/
+
+# Archives (compressed files not needed in image)
+*.zip
+
+# Tool configs
+.python-version
+.sisyphus/
+
+# IDE/Editor
+.ruff_cache/

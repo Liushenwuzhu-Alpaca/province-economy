@@ -1159,13 +1159,17 @@ dependencies = [
     { name = "lxml" },
     { name = "matplotlib" },
     { name = "numpy" },
-    { name = "opencv-python-headless" },
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "plotly" },
-    { name = "rapidocr-onnxruntime" },
     { name = "requests" },
     { name = "scikit-learn" },
+]
+
+[package.optional-dependencies]
+ocr = [
+    { name = "opencv-python-headless" },
+    { name = "rapidocr-onnxruntime" },
 ]
 
 [package.metadata]
@@ -1176,14 +1180,15 @@ requires-dist = [
     { name = "lxml", specifier = ">=6.1.0" },
     { name = "matplotlib", specifier = ">=3.10.9" },
     { name = "numpy", specifier = ">=1.26.0" },
-    { name = "opencv-python-headless", specifier = ">=4.13.0.92" },
+    { name = "opencv-python-headless", marker = "extra == 'ocr'", specifier = ">=4.13.0.92" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "plotly", specifier = ">=6.7.0" },
-    { name = "rapidocr-onnxruntime", specifier = ">=1.4.4" },
+    { name = "rapidocr-onnxruntime", marker = "extra == 'ocr'", specifier = ">=1.4.4" },
     { name = "requests", specifier = ">=2.33.1" },
     { name = "scikit-learn", specifier = ">=1.8.0" },
 ]
+provides-extras = ["ocr"]
 
 [[package]]
 name = "py-mini-racer"

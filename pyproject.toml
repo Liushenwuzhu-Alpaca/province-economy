@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">= 3.11"
 dependencies = [
     "akshare>=1.18.60",
+    "anthropic>=0.40",
     "beautifulsoup4>=4.14.3",
+    "chromadb>=0.4",
     "dbnomics>=1.2.7",
     "fastapi>=0.115.0",
     "kaleido>=1.3.0",

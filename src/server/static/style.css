@@ -94,6 +94,40 @@ html, body {
     margin-top: 4px;
 }
 
+.year-selector {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.year-selector label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.year-selector select {
+    flex: 1;
+    height: 30px;
+    padding: 0 8px;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+    transition: border-color var(--transition-speed);
+    appearance: auto;
+}
+
+.year-selector select:focus {
+    border-color: var(--accent-blue);
+}
+
 .sidebar-nav {
     flex: 1;
     padding: 8px 0;
@@ -352,7 +386,8 @@ html, body {
 
     .sidebar-header h1,
     .sidebar-header .subtitle,
-    .nav-btn .nav-label {
+    .nav-btn .nav-label,
+    .year-selector label {
         display: none;
     }
 

@@ -94,13 +94,14 @@ var PROVINCE_PALETTE = [
 var currentChart = null;
 var currentType = 'scoreMap';
 var dashboardData = null;
+var currentYear = 2024;
 
 // ---------------------------------------------------------------------------
 // Initialization
 // ---------------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', function () {
-    fetchData();
+    fetchYears();
     setupChatBar();
     window.addEventListener('resize', function () {
         if (currentChart) {
@@ -109,9 +110,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-function fetchData() {
+function fetchData(year) {
     showLoading();
-    fetch('/api/data?year=2024')
+    fetch('/api/data?year=' + year)
         .then(function (response) {
             if (!response.ok) {
                 throw new Error('HTTP ' + response.status);
@@ -120,14 +121,49 @@ function fetchData() {
         })
         .then(function (data) {
             dashboardData = data;
+            currentYear = year;
             // Register China map from API GeoJSON (ECharts 5 no longer bundles maps)
             echarts.registerMap('china', data.geojson);
             hideLoading();
-            switchChart('scoreMap');
+            switchChart(currentType);
         })
         .catch(function (err) {
             hideLoading();
             showError('数据加载失败: ' + err.message);
+        });
+}
+
+function fetchYears() {
+    fetch('/api/years')
+        .then(function (response) {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function (data) {
+            var years = data.years;
+            var select = document.getElementById('year-select');
+            for (var i = 0; i < years.length; i++) {
+                var option = document.createElement('option');
+                option.value = years[i];
+                option.textContent = years[i] + ' 年';
+                select.appendChild(option);
+            }
+            // Select latest year by default
+            select.value = years[years.length - 1];
+            currentYear = parseInt(select.value);
+            select.addEventListener('change', function () {
+                var newYear = parseInt(this.value);
+                if (newYear !== currentYear) {
+                    fetchData(newYear);
+                }
+            });
+            // Load initial data for the default year
+            fetchData(currentYear);
+        })
+        .catch(function (err) {
+            showError('年份列表加载失败: ' + err.message);
         });
 }
 
@@ -228,7 +264,7 @@ function removeOverlays() {
 function retryFetch() {
     removeOverlays();
     showLoading();
-    fetchData();
+    fetchData(currentYear);
 }
 
 function escapeHtml(text) {
@@ -446,29 +482,25 @@ function renderRadarChart(data) {
     var provinces = data.radar.provinces;
     var indicators = data.radar.indicators;
     var values = data.radar.values;
+    var scoreProvinces = data.scores.provinces;
+    var scores = data.scores.scores;
 
-    var top5Names = ['广东', '江苏', '浙江', '上海', '北京'];
-    var selectedIndices = [];
-    var selectedNames = [];
-
-    for (var i = 0; i < top5Names.length; i++) {
-        var idx = provinces.indexOf(top5Names[i]);
-        if (idx !== -1) {
-            selectedIndices.push(idx);
-            selectedNames.push(top5Names[i]);
-        }
+    // Build province -> score map for ranking
+    var scoreMap = {};
+    for (var i = 0; i < scoreProvinces.length; i++) {
+        scoreMap[scoreProvinces[i]] = scores[i];
     }
 
-    if (selectedIndices.length < 3) {
-        selectedIndices = [];
-        selectedNames = [];
-        var count = Math.min(5, provinces.length);
-        for (var j = 0; j < count; j++) {
-            selectedIndices.push(j);
-            selectedNames.push(provinces[j]);
-        }
+    // Sort provinces by score descending to find top 5
+    var sortedProvinces = provinces.slice().sort(function (a, b) {
+        return (scoreMap[b] || 0) - (scoreMap[a] || 0);
+    });
+    var top5Set = {};
+    for (var t = 0; t < Math.min(5, sortedProvinces.length); t++) {
+        top5Set[sortedProvinces[t]] = true;
     }
 
+    // Build radar indicators
     var radarIndicators = [];
     for (var k = 0; k < indicators.length; k++) {
         radarIndicators.push({
@@ -477,21 +509,25 @@ function renderRadarChart(data) {
         });
     }
 
+    // Build series data for ALL 31 provinces
     var seriesData = [];
-    for (var m = 0; m < selectedIndices.length; m++) {
+    var legendSelected = {};
+    for (var m = 0; m < provinces.length; m++) {
+        var name = provinces[m];
         seriesData.push({
-            value: values[selectedIndices[m]],
-            name: selectedNames[m],
+            value: values[m],
+            name: name,
             lineStyle: { width: 2 },
             areaStyle: { opacity: 0.1 },
         });
+        legendSelected[name] = !!top5Set[name];
     }
 
     var option = {
         backgroundColor: '#1e2a45',
         color: PROVINCE_PALETTE,
         title: {
-            text: '省域经济竞争力雷达图（前5省份）',
+            text: '省域经济竞争力雷达图（全部省份，点击图例切换显示）',
             left: 'center',
             top: 16,
             textStyle: {
@@ -501,7 +537,8 @@ function renderRadarChart(data) {
             },
         },
         legend: {
-            data: selectedNames,
+            data: provinces,
+            selected: legendSelected,
             bottom: 16,
             textStyle: { color: '#a0a0b8', fontSize: 12 },
         },

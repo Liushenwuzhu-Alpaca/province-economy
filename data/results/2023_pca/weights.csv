@@ -1,0 +1,11 @@
+﻿indicator,weight
+gdp,0.1285
+gdp_growth,0.0451
+retail,0.1448
+income,0.1634
+consumption_expenditure,0.1347
+tertiary_share,0.0887
+fixed_invest,0.0651
+fiscal_revenue,0.1306
+cpi,0.0727
+unemployment,0.0265

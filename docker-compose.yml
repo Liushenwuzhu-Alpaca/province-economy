@@ -8,8 +8,8 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./src/server/static:/usr/share/nginx/html:ro
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./src/server/static:/usr/share/nginx/html:ro,Z
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro,Z
     networks:
       - app-network
     depends_on:

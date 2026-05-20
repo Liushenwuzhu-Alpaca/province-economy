@@ -1,45 +1,53 @@
-## Docker 使用
+# 省域经济综合竞争力评价
 
-### 快速开始
+基于熵权法 + PCA + K-Means 的中国省域经济综合竞争力评价系统。
+支持静态图表输出（适配 PPT / 报告）和交互式 Web 仪表盘。
 
-构建镜像:
+覆盖 2019–2024 年 31 个省/自治区/直辖市，15 个经济指标。
 
-```bash
-docker build -t province-economy:latest .
-```
+## 快速开始
 
-运行分析（默认年份 2024）:
-
-```bash
-docker run --rm \
-  -v $(pwd)/data/results:/app/data/results \
-  province-economy:latest
-```
-
-### 命令行参数
-
-| 参数 | 说明 | 示例 |
-|------|------|------|
-| `--year 2024` | 指定分析年份（2023 或 2024） | `docker run ... --year 2023` |
-| `--recompute` | 跳过缓存，强制重新计算 | `docker run ... --recompute` |
-| `--no-pca` | 跳过 PCA 降维，直接聚类 | `docker run ... --no-pca` |
-
-完整示例:
+### 安装
 
 ```bash
-# 分析 2023 年数据，跳过缓存，不启用 PCA
-docker run --rm \
-  -v $(pwd)/data/results:/app/data/results \
-  province-economy:latest python main.py --year 2023 --recompute --no-pca
+uv sync
 ```
 
-### Docker Compose
-
-使用 docker-compose 一键启动:
+### 运行分析
 
 ```bash
-docker compose up --build
+# 分析 2024 年数据（默认）
+uv run python main.py
+
+# 指定年份
+uv run python main.py --year 2023
+
+# 强制重新计算（跳过缓存）
+uv run python main.py --year 2024 --recompute
+
+# 不使用 PCA 降维
+uv run python main.py --year 2024 --no-pca
 ```
+
+### 生成静态图表（PNG + HTML，用于 PPT / 报告）
+
+```bash
+# 单年图表 → output/ 目录
+uv run python main.py --viz --year 2024
+
+# 所有年份 + 跨年趋势图
+uv run python main.py --all-years --viz
+```
+
+### 启动交互式仪表盘
+
+```bash
+uv run python -m src.server.main
+```
+
+浏览器访问 **http://localhost:8765**。
+
+仪表盘 API 端点：`/api/data?year=2024`、`/api/years`、`/api/trend`。
 
 ## Docker 部署
 
@@ -60,8 +68,22 @@ docker compose logs -f
 docker compose down
 ```
 
-启动后访问 **http://localhost**，nginx 会将 `/` 路由到仪表盘前端，
+启动后访问 **http://localhost:80**，nginx 会将 `/` 路由到仪表盘前端，
 `/api/*` 反向代理到 FastAPI 后端。
+
+### 演示
+
+```bash
+curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+chmod +x cloudflared
+```
+
+下载并运行 Cloudflare Tunnel，将本地 80 端口暴露到公网：
+```bash
+./cloudflared tunnel --url http://localhost:80
+```
+
+然后访问生成的临时公网IP即可
 
 ## 项目结构
 

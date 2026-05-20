@@ -17,7 +17,7 @@ from .data_api import load_all_data, load_trend_data
 # ---------------------------------------------------------------------------
 
 _STATIC_DIR = Path(__file__).parent / "static"
-_RESULTS_DIR = Path("data/raw/ocr_outputs")
+_RESULTS_DIR = Path("data/results")
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -77,10 +77,12 @@ def api_years() -> dict[str, Any]:
     years = []
     if _RESULTS_DIR.exists():
         for entry in _RESULTS_DIR.iterdir():
-            if entry.is_file():
-                m = re.match(r"province_indicators_(\d{4})\.csv$", entry.name)
-                if m:
-                    years.append(int(m.group(1)))
+            if entry.is_dir():
+                scores_file = entry / "scores.csv"
+                if scores_file.exists():
+                    m = re.match(r"^(\d{4})_pca$", entry.name)
+                    if m:
+                        years.append(int(m.group(1)))
     years.sort()
     return {"years": years}
 

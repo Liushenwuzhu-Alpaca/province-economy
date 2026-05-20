@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(os.environ.get("PROJ_ROOT", Path(__file__).resolve().parents[1]))
 DATA_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 DATA_CACHE_DIR = PROJECT_ROOT / "data_cache"
 

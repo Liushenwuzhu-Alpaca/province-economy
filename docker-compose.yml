@@ -1,0 +1,46 @@
+services:
+  # =========================================================================
+  # Nginx: reverse proxy + static frontend
+  # =========================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: province-economy-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./src/server/static:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+  # =========================================================================
+  # Backend: FastAPI server (API only, no static files in production)
+  # =========================================================================
+  backend:
+    build: .
+    container_name: province-economy-backend
+    volumes:
+      - ./data/results:/app/data/results
+    networks:
+      - app-network
+
+  # =========================================================================
+  # ChromaDB: Vector Database for RAG Knowledge Base
+  # =========================================================================
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: province-economy-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma_data:/chroma/chroma
+    networks:
+      - app-network
+    environment:
+      - IS_PERSISTENT=TRUE
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,22 @@
+{
+  "active_plan": "/run/media/alpaca/Data/Works/PY-ECO/province-economy/.sisyphus/plans/go-server-refactor.md",
+  "started_at": "2026-05-20T06:31:41.165Z",
+  "session_ids": [
+    "ses_1bd0c76f4ffe2dmUo6VABPxUob"
+  ],
+  "session_origins": {
+    "ses_1bd0c76f4ffe2dmUo6VABPxUob": "direct"
+  },
+  "plan_name": "go-server-refactor",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "创建 Go 项目骨架 + 路由 + 静态文件",
+      "session_id": "ses_1bbcc6cc3ffeK8OjiwT8f6TKXt",
+      "agent": "oh-my-claudecode:code-simplifier",
+      "updated_at": "2026-05-20T07:34:52.354Z"
+    }
+  }
+}

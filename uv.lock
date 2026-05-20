@@ -24,7 +24,7 @@ wheels = [
 
 [[package]]
 name = "akshare"
-version = "1.18.62"
+version = "1.18.63"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "akracer", marker = "sys_platform == 'linux'" },
@@ -44,9 +44,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "xlrd" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/10/20/024c2347640917f414807454492254651e7920822933fe1e27258a82b105/akshare-1.18.62.tar.gz", hash = "sha256:75661ba76dfa5f35c0a36ec1d4f76aedc16459fcc2ca03a05c721f412fcf7b60", size = 882389, upload-time = "2026-05-18T10:46:53.279Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/c3/3fef356371cb33e965185aa5efa288bcac6bd20e45c95db00e5a08a0bf6c/akshare-1.18.63.tar.gz", hash = "sha256:dc8bfb90f9c0818589f7cc377406f84877b4aabc02d138363c0dc962971a93ff", size = 882433, upload-time = "2026-05-20T09:55:16.525Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/cf/0e5dffc48f15b558968a96565e23a5557cd0a24fa815d50589971b8da5f9/akshare-1.18.62-py3-none-any.whl", hash = "sha256:80aa3c5967c7de53ee386a6f6bab6df0b6d242d0137533bd07451b65472a4a11", size = 1105667, upload-time = "2026-05-18T10:46:51.47Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/79/2db7eb8d0a7ff5584844209e75b2fe6ffcf480446e944da1d5927c72a68f/akshare-1.18.63-py3-none-any.whl", hash = "sha256:1e0c271d0c2aabc91a592b6aad5791c160de3674cf01d025c0b7cbdbcab41f3a", size = 1105612, upload-time = "2026-05-20T09:55:14.517Z" },
 ]
 
 [[package]]
@@ -2070,14 +2070,18 @@ dependencies = [
     { name = "lxml" },
     { name = "matplotlib" },
     { name = "numpy" },
-    { name = "opencv-python-headless" },
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "plotly" },
-    { name = "rapidocr-onnxruntime" },
     { name = "requests" },
     { name = "scikit-learn" },
     { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.optional-dependencies]
+ocr = [
+    { name = "opencv-python-headless" },
+    { name = "rapidocr-onnxruntime" },
 ]
 
 [package.metadata]
@@ -2092,15 +2096,16 @@ requires-dist = [
     { name = "lxml", specifier = ">=6.1.0" },
     { name = "matplotlib", specifier = ">=3.10.9" },
     { name = "numpy", specifier = ">=1.26.0" },
-    { name = "opencv-python-headless", specifier = ">=4.13.0.92" },
+    { name = "opencv-python-headless", marker = "extra == 'ocr'", specifier = ">=4.13.0.92" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "plotly", specifier = ">=6.7.0" },
-    { name = "rapidocr-onnxruntime", specifier = ">=1.4.4" },
+    { name = "rapidocr-onnxruntime", marker = "extra == 'ocr'", specifier = ">=1.4.4" },
     { name = "requests", specifier = ">=2.33.1" },
     { name = "scikit-learn", specifier = ">=1.8.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
 ]
+provides-extras = ["ocr"]
 
 [[package]]
 name = "py-mini-racer"

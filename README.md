@@ -49,11 +49,52 @@ uv run python -m src.server.main
 
 仪表盘 API 端点：`/api/data?year=2024`、`/api/years`、`/api/trend`。
 
+## Docker 部署
+
+使用 Docker Compose 一键部署三容器架构：
+
+- **nginx**：前端静态资源 + 反向代理（端口 80）
+- **backend**：FastAPI 分析服务（内部 8765）
+- **chromadb**：向量数据库（内部 8000），用于 RAG 智能问答
+
+```bash
+# 启动全部服务
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+
+# 停止并清理
+docker compose down
+```
+
+启动后访问 **http://localhost:80**，nginx 会将 `/` 路由到仪表盘前端，
+`/api/*` 反向代理到 FastAPI 后端。
+
+### 演示
+
+```bash
+curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+chmod +x cloudflared
+```
+
+下载并运行 Cloudflare Tunnel，将本地 80 端口暴露到公网：
+```bash
+./cloudflared tunnel --url http://localhost:80
+```
+
+然后访问生成的临时公网IP即可
+
 ## 项目结构
 
 ```
 ├── main.py                  # CLI 入口
 ├── pyproject.toml           # 项目配置与依赖
+├── Dockerfile               # 后端容器镜像
+├── docker-compose.yml       # 三容器编排
+├── .dockerignore            # Docker 构建忽略文件
+├── nginx/
+│   └── default.conf         # nginx 反向代理配置
 ├── src/
 │   ├── config.py            # 省份列表、指标定义、路径常量
 │   ├── data/                # 数据读取、清洗、缓存
@@ -71,7 +112,6 @@ uv run python -m src.server.main
 
 | 功能             | 说明                                                       |
 | ---------------- | ---------------------------------------------------------- |
-| Docker 云部署    | 容器化前后端分离架构，一键部署到云服务器                   |
 | Agent 智能对话   | 基于 RAG 的省域经济数据问答助手，接入仪表盘对话框             |
 
 ## 技术栈
@@ -81,6 +121,8 @@ uv run python -m src.server.main
 | 数据分析       | NumPy, Pandas, Scikit-learn        |
 | 静态可视化     | Matplotlib                         |
 | 交互式仪表盘   | FastAPI, Uvicorn, ECharts          |
+| 容器化部署     | Docker, Docker Compose, nginx      |
+| 向量数据库     | ChromaDB                           |
 | 包管理         | uv                                 |
 
 ## 数据说明

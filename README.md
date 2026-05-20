@@ -41,16 +41,71 @@ docker run --rm \
 docker compose up --build
 ```
 
-当前仅 backend（分析引擎）可用，frontend 和 chromadb 为预留占位。
+## Docker 部署
 
-### 数据说明
+使用 Docker Compose 一键部署三容器架构：
 
-- `data_cache/` — 预处理后的指标数据已内置于镜像中，无需额外挂载
-- `data/results/` — 分析结果通过 volume 挂载输出到宿主机，持久化保存
+- **nginx**：前端静态资源 + 反向代理（端口 80）
+- **backend**：FastAPI 分析服务（内部 8765）
+- **chromadb**：向量数据库（内部 8000），用于 RAG 智能问答
 
-### 镜像信息
+```bash
+# 启动全部服务
+docker compose up -d
 
-- 基础镜像: `python:3.11-slim-bookworm`
-- 包管理器: uv
-- 镜像大小: 约 300MB（已剥离 OpenCV/RapidOCR 等 OCR 依赖）
-- 运行用户: 非 root（appuser）
+# 查看日志
+docker compose logs -f
+
+# 停止并清理
+docker compose down
+```
+
+启动后访问 **http://localhost**，nginx 会将 `/` 路由到仪表盘前端，
+`/api/*` 反向代理到 FastAPI 后端。
+
+## 项目结构
+
+```
+├── main.py                  # CLI 入口
+├── pyproject.toml           # 项目配置与依赖
+├── Dockerfile               # 后端容器镜像
+├── docker-compose.yml       # 三容器编排
+├── .dockerignore            # Docker 构建忽略文件
+├── nginx/
+│   └── default.conf         # nginx 反向代理配置
+├── src/
+│   ├── config.py            # 省份列表、指标定义、路径常量
+│   ├── data/                # 数据读取、清洗、缓存
+│   ├── models/              # 熵权法 + PCA + K-Means 分析模型
+│   ├── visualization/       # Matplotlib 静态图表（PNG + HTML）
+│   └── server/              # FastAPI + ECharts 交互式仪表盘
+├── data/
+│   ├── raw/                 # NBS 官方 CSV 原始数据
+│   └── results/             # 分析结果缓存
+├── data_cache/              # 清洗后的指标 CSV + GeoJSON
+└── output/                  # 生成的图表（PNG + HTML）
+```
+
+## 开发中
+
+| 功能             | 说明                                                       |
+| ---------------- | ---------------------------------------------------------- |
+| Agent 智能对话   | 基于 RAG 的省域经济数据问答助手，接入仪表盘对话框             |
+
+## 技术栈
+
+| 模块           | 技术                               |
+| -------------- | ---------------------------------- |
+| 数据分析       | NumPy, Pandas, Scikit-learn        |
+| 静态可视化     | Matplotlib                         |
+| 交互式仪表盘   | FastAPI, Uvicorn, ECharts          |
+| 容器化部署     | Docker, Docker Compose, nginx      |
+| 向量数据库     | ChromaDB                           |
+| 包管理         | uv                                 |
+
+## 数据说明
+
+原始数据来自国家统计局公开数据，覆盖 2019–2024 年。清洗后的指标缓存位于
+`data_cache/indicators_{year}.csv`，含 31 省 × 15 个经济指标列。
+
+详细的数据说明和指标定义见 `data/README.md` 和 `src/config.py`。

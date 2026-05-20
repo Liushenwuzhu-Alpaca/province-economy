@@ -8,6 +8,7 @@
 """
 
 import sys
+import pandas as pd
 
 from src.data import get_indicators
 from src.models.analyzer import analyze

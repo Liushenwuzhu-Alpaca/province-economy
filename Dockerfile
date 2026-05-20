@@ -1,72 +1,64 @@
 # =============================================================================
-# Province-Economy Analysis Engine - Multi-stage Docker Build
+# Province-Economy Dashboard - Multi-stage Docker Build
 # =============================================================================
-# Stage 1: Build Python dependencies with uv (cached, reproducible)
-# Stage 2: Minimal runtime image with pre-processed CSV data
+# Stage 1: Build Python deps with uv
+# Stage 2: FastAPI server + ECharts dashboard + analysis engine
 # =============================================================================
 
 # ---------------------------------------------------------------------------
 # Stage 1: Builder - install Python dependencies via uv
-# ---------------------------------------------------------------------------
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
+FROM python:3.11-slim-bookworm AS builder
+
+# Install uv via pip
+RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 
-# Copy dependency manifests first for layer caching
 COPY pyproject.toml uv.lock ./
-
-# Install dependencies into .venv without the project itself
-# --frozen: lockfile must match pyproject.toml exactly (no resolution)
-# --no-dev: skip dev/test dependencies
-# --no-install-project: only install third-party deps, not the project
 RUN uv sync --frozen --no-dev --no-install-project
 
 # ---------------------------------------------------------------------------
-# Stage 2: Runtime - minimal image with only runtime system libs
+# Stage 2: Runtime - FastAPI server + dashboard
 # ---------------------------------------------------------------------------
 FROM python:3.11-slim-bookworm AS runtime
 
-# Install only the system libraries needed by lxml (which wraps libxml2/libxslt)
-# --no-install-recommends: skip non-essential suggested packages
-# Clean apt cache to minimize image size
+# System deps: lxml (libxml2/libxslt), scikit-learn (libgomp), Chinese font
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libxml2 \
         libxslt1.1 \
+        libgomp1 \
+        libgfortran5 \
+        fonts-wqy-microhei \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the pre-built virtual environment from builder
+# Copy uv binary (server uses "uv run main.py" to auto-generate missing data)
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
+COPY --from=builder /usr/local/bin/uvx /usr/local/bin/uvx
+
+# Copy pre-built venv
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy application source code
+# Copy source (server + visualization + models + data modules + static frontend)
 COPY src/ /app/src/
 COPY main.py /app/
 
-# Copy pre-processed CSV data (~28KB total)
+# Copy pre-processed data (indicators CSV + GeoJSON ~100KB)
 COPY data_cache/ /app/data_cache/
 
-# Environment configuration
-# PATH: ensure venv binaries take precedence
-# PROJ_ROOT: override config.py base path for container filesystem
-# PYTHONIOENCODING: force UTF-8 output encoding
-# LANG: C.UTF-8 locale for consistent string handling
+# Environment
 ENV PATH="/app/.venv/bin:$PATH" \
     PROJ_ROOT=/app \
     PYTHONIOENCODING=utf-8 \
     LANG=C.UTF-8
 
-# Create non-root user for security
+# Non-root user
 RUN useradd --create-home appuser
-
-# Switch to non-root user
 USER appuser
-
-# Set working directory
 WORKDIR /app
 
-# Entrypoint: exec form for proper signal handling
-# Usage: docker run <image> [args]
-#   docker run <image> --year 2023
-#   docker run <image> --recompute
-#   docker run <image> --no-pca
-ENTRYPOINT ["python", "main.py"]
+# Expose FastAPI port
+EXPOSE 8765
+
+# Start FastAPI server
+ENTRYPOINT ["python", "-m", "src.server.main"]

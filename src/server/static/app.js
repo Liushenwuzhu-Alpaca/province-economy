@@ -95,6 +95,7 @@ var currentChart = null;
 var currentType = 'scoreMap';
 var dashboardData = null;
 var currentYear = 2024;
+var trendData = null;
 
 // ---------------------------------------------------------------------------
 // Initialization
@@ -102,6 +103,7 @@ var currentYear = 2024;
 
 document.addEventListener('DOMContentLoaded', function () {
     fetchYears();
+    fetchTrendData();
     setupChatBar();
     window.addEventListener('resize', function () {
         if (currentChart) {
@@ -201,7 +203,7 @@ function switchChart(type) {
             renderRankingChart(dashboardData);
             break;
         case 'trend':
-            renderTrendChart(dashboardData);
+            renderTrendChart();
             break;
     }
 
@@ -670,34 +672,125 @@ function renderRankingChart(data) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Trend chart (placeholder for single-year data)
+// 5. Trend chart (multi-year line chart via /api/trend)
 // ---------------------------------------------------------------------------
 
-function renderTrendChart(data) {
+function fetchTrendData() {
+    fetch('/api/trend')
+        .then(function (response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        })
+        .then(function (data) {
+            trendData = data;
+        })
+        .catch(function (err) {
+            console.error('趋势数据加载失败: ' + err.message);
+        });
+}
+
+function renderTrendChart() {
+    if (!trendData) {
+        currentChart.setOption({
+            backgroundColor: '#1e2a45',
+            title: { text: '趋势图', left: 'center', top: 'middle', textStyle: { color: '#e0e0e0' } },
+            graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: '趋势数据加载中...', fontSize: 20, fill: '#6c6c8a' } }]
+        });
+        return;
+    }
+
+    var years = trendData.years;
+    var series = trendData.series;
+    var provinces = trendData.provinces;
+
+    // Build a map: province -> {year: score}
+    var dataMap = {};
+    for (var i = 0; i < series.length; i++) {
+        var s = series[i];
+        if (!dataMap[s.province]) dataMap[s.province] = {};
+        dataMap[s.province][s.year] = s.score;
+    }
+
+    // Find top 5 provinces by latest year score
+    var latestYear = years[years.length - 1];
+    var provinceScores = [];
+    for (var p = 0; p < provinces.length; p++) {
+        var name = provinces[p];
+        var score = dataMap[name] && dataMap[name][latestYear] ? dataMap[name][latestYear] : 0;
+        provinceScores.push({ name: name, score: score });
+    }
+    provinceScores.sort(function (a, b) { return b.score - a.score; });
+    var top5 = provinceScores.slice(0, 5).map(function (x) { return x.name; });
+    var top5Set = {};
+    for (var t = 0; t < top5.length; t++) top5Set[top5[t]] = true;
+
+    // Build series data for ECharts
+    var echartsSeries = [];
+    var legendData = [];
+    for (var p2 = 0; p2 < provinces.length; p2++) {
+        var prov = provinces[p2];
+        var lineData = [];
+        for (var y = 0; y < years.length; y++) {
+            var val = dataMap[prov] && dataMap[prov][years[y]] !== undefined ? dataMap[prov][years[y]] : null;
+            lineData.push(val);
+        }
+        legendData.push(prov);
+        echartsSeries.push({
+            name: prov,
+            type: 'line',
+            data: lineData,
+            smooth: true,
+            lineStyle: { width: 2 },
+            symbol: 'circle',
+            symbolSize: 4,
+        });
+    }
+
+    // Build legend.selected -- only top5 visible initially
+    var legendSelected = {};
+    for (var p3 = 0; p3 < provinces.length; p3++) {
+        legendSelected[provinces[p3]] = !!top5Set[provinces[p3]];
+    }
+
     var option = {
         backgroundColor: '#1e2a45',
+        color: PROVINCE_PALETTE,
         title: {
-            text: '省域经济竞争力趋势图',
+            text: '省份竞争力趋势图（点击图例切换显示）',
             left: 'center',
             top: 16,
-            textStyle: {
-                color: '#e0e0e0',
-                fontSize: 18,
-                fontWeight: 600,
-            },
+            textStyle: { color: '#e0e0e0', fontSize: 18, fontWeight: 600 }
         },
-        graphic: [{
-            type: 'text',
-            left: 'center',
-            top: 'middle',
-            style: {
-                text: '需要多年份数据',
-                fontSize: 20,
-                fontWeight: 'bold',
-                fill: '#6c6c8a',
-                textAlign: 'center',
-            },
-        }],
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(30,42,69,0.9)',
+            borderColor: 'rgba(160,160,184,0.3)',
+            textStyle: { color: '#e0e0e0', fontSize: 13 }
+        },
+        legend: {
+            data: legendData,
+            selected: legendSelected,
+            type: 'scroll',
+            bottom: 8,
+            textStyle: { color: '#a0a0b8', fontSize: 11 }
+        },
+        grid: { left: 60, right: 40, top: 70, bottom: 60 },
+        xAxis: {
+            type: 'category',
+            data: years,
+            axisLine: { lineStyle: { color: 'rgba(160,160,184,0.3)' } },
+            axisLabel: { color: '#a0a0b8', fontSize: 12 }
+        },
+        yAxis: {
+            type: 'value',
+            name: '综合得分',
+            min: 0,
+            max: 100,
+            axisLine: { lineStyle: { color: 'rgba(160,160,184,0.3)' } },
+            axisLabel: { color: '#a0a0b8', fontSize: 12 },
+            splitLine: { lineStyle: { color: 'rgba(160,160,184,0.1)' } }
+        },
+        series: echartsSeries
     };
 
     currentChart.setOption(option);

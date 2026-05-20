@@ -60,6 +60,18 @@ def _preprocess_indicators(
 
     return df
 
+ANALYSIS_INDICATORS = [
+    "gdp",  # 地区生产总值
+    "gdp_growth",  # GDP增速
+    "retail",  # 社会消费品零售总额
+    "income",  # 居民人均可支配收入
+    "consumption_expenditure",  # 居民人均消费支出
+    "tertiary_share",  # 第三产业占GDP比重
+    "fixed_invest",  # 固定资产投资增速
+    "fiscal_revenue",  # 地方一般公共预算收入
+    "cpi",  # 居民消费价格指数 (特殊处理)
+    "unemployment",  # 失业率代理指标
+]
 
 def draw_radar(
     raw_df: pd.DataFrame,
@@ -104,7 +116,7 @@ def draw_radar(
     df["province"] = df["province"].astype(str)
 
     if indicator_cols is None:
-        indicator_cols = [c for c in df.columns if c != "province"]
+        indicator_cols = [c for c in df.columns if c in ANALYSIS_INDICATORS]
     indicator_cols = list(indicator_cols)
 
     # 预处理 + 归一化

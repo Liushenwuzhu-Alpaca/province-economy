@@ -17,7 +17,7 @@ from src.models.cache import cache_valid, load_results, save_results
 from src.models.reporter import print_method_a, print_method_b
 
 
-YEAR_LIST = {2023, 2024}
+YEAR_LIST = {2019, 2020, 2021, 2022, 2023, 2024}
 
 
 def _run_year(year: int, k: int, use_pca: bool, recompute: bool) -> tuple[dict, "pd.DataFrame"]:

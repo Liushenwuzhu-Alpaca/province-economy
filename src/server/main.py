@@ -10,14 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .data_api import load_all_data
+from .data_api import load_all_data, load_trend_data
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
 _STATIC_DIR = Path(__file__).parent / "static"
-_RESULTS_DIR = Path("data/results")
+_RESULTS_DIR = Path("data/raw/ocr_outputs")
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -64,7 +64,7 @@ def api_data(
     scores_file = _RESULTS_DIR / f"{year}_pca" / "scores.csv"
     if not scores_file.exists():
         subprocess.run(
-            ["uv", "run", "python", "main.py", "--year", str(year)],
+            ["uv", "run", "main.py", "--year", str(year)],
             check=True,
             cwd=_PROJECT_ROOT,
             timeout=120,
@@ -77,12 +77,17 @@ def api_years() -> dict[str, Any]:
     years = []
     if _RESULTS_DIR.exists():
         for entry in _RESULTS_DIR.iterdir():
-            if entry.is_dir():
-                m = re.match(r"^(\d{4})_pca$", entry.name)
+            if entry.is_file():
+                m = re.match(r"province_indicators_(\d{4})\.csv$", entry.name)
                 if m:
                     years.append(int(m.group(1)))
     years.sort()
     return {"years": years}
+
+
+@app.get("/api/trend")
+def api_trend() -> dict[str, Any]:
+    return load_trend_data()
 
 
 # ---------------------------------------------------------------------------

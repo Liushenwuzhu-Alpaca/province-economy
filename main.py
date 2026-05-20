@@ -15,7 +15,7 @@ from src.models.cache import cache_valid, load_results, save_results
 from src.models.reporter import print_method_a, print_method_b
 
 
-YEAR_LIST = {2023, 2024}
+YEAR_LIST = {2019, 2020, 2021, 2022, 2023, 2024}
 
 
 def main(year: int = 2024, k: int = 4, use_pca: bool = True, recompute: bool = False):

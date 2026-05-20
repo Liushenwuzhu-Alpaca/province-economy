@@ -7,6 +7,7 @@ Designed to be server-independent; main.py imports from here.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -223,5 +224,60 @@ def load_all_data(year: int = 2024) -> dict:
             "radar": load_radar_data(year),
             "ranking": load_ranking_json(year),
             "geojson": load_geojson(),
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# load_trend_data
+# ---------------------------------------------------------------------------
+
+
+def load_trend_data() -> dict:
+    """Aggregate scores across all available years for trend chart.
+
+    Returns
+    -------
+    dict  {
+        "years": [2019, 2020, ...],
+        "provinces": ["广东", "江苏", ...],  # 31 provinces
+        "series": [
+            {"province": "广东", "year": 2019, "score": 85.5},
+            {"province": "广东", "year": 2020, "score": 88.2},
+            ...
+        ]
+    }
+    """
+    years = []
+    if _DATA_RESULTS.exists():
+        for entry in _DATA_RESULTS.iterdir():
+            if entry.is_dir():
+                m = re.match(r"^(\d{4})_pca$", entry.name)
+                if m:
+                    scores_file = entry / "scores.csv"
+                    if scores_file.exists():
+                        years.append(int(m.group(1)))
+    years.sort()
+
+    all_series = []
+    province_set = set()
+
+    for year in years:
+        df = pd.read_csv(_DATA_RESULTS / f"{year}_pca" / "scores.csv")
+        for _, row in df.iterrows():
+            all_series.append(
+                {
+                    "province": row["province"],
+                    "year": year,
+                    "score": round(float(row["score"]), 2),
+                }
+            )
+            province_set.add(row["province"])
+
+    return _to_native(
+        {
+            "years": years,
+            "provinces": sorted(province_set),
+            "series": all_series,
         }
     )

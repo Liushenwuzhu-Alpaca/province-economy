@@ -1,0 +1,10 @@
+{
+  "year": 2024,
+  "method": "pca",
+  "silhouette": 0.4522,
+  "pca_var": [
+    0.4617,
+    0.217
+  ],
+  "indicator_count": 10
+}

@@ -10,7 +10,8 @@ dependencies = [
     "beautifulsoup4>=4.14.3",
     "chromadb>=0.4",
     "dbnomics>=1.2.7",
-    "gradio>=4.0",
+    "fastapi>=0.115.0",
+    "kaleido>=1.3.0",
     "lxml>=6.1.0",
     "matplotlib>=3.10.9",
     "numpy>=1.26.0",
@@ -21,5 +22,5 @@ dependencies = [
     "rapidocr-onnxruntime>=1.4.4",
     "requests>=2.33.1",
     "scikit-learn>=1.8.0",
-    "sentence-transformers>=2.2",
+    "uvicorn[standard]>=0.34.0",
 ]

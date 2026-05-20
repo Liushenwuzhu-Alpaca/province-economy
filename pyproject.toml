@@ -8,6 +8,7 @@ dependencies = [
     "akshare>=1.18.60",
     "beautifulsoup4>=4.14.3",
     "dbnomics>=1.2.7",
+    "fastapi>=0.115.0",
     "kaleido>=1.3.0",
     "lxml>=6.1.0",
     "matplotlib>=3.10.9",
@@ -17,6 +18,7 @@ dependencies = [
     "plotly>=6.7.0",
     "requests>=2.33.1",
     "scikit-learn>=1.8.0",
+    "uvicorn[standard]>=0.34.0",
 ]
 
 [project.optional-dependencies]

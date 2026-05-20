@@ -1,8 +1,22 @@
-version: '3.8'
-
 services:
   # =========================================================================
-  # Backend: Province-Economy Analysis Engine (ACTIVE)
+  # Nginx: reverse proxy + static frontend
+  # =========================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: province-economy-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./src/server/static:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+  # =========================================================================
+  # Backend: FastAPI server (API only, no static files in production)
   # =========================================================================
   backend:
     build: .
@@ -11,41 +25,21 @@ services:
       - ./data/results:/app/data/results
     networks:
       - app-network
-    # CLI tool - runs analysis and exits. No ports needed.
 
   # =========================================================================
-  # Frontend: Streamlit Web Dashboard (PLACEHOLDER - future implementation)
+  # ChromaDB: Vector Database for RAG Knowledge Base
   # =========================================================================
-  # Uncomment the block below when the Streamlit frontend is ready:
-  # frontend:
-  #   # build: ./frontend
-  #   container_name: province-economy-frontend
-  #   ports:
-  #     - "8501:8501"
-  #   volumes:
-  #     - ./data/results:/app/data/results
-  #   networks:
-  #     - app-network
-  #   # depends_on:
-  #   #   - backend
-
-  # =========================================================================
-  # ChromaDB: Vector Database for RAG Knowledge Base (PLACEHOLDER)
-  # =========================================================================
-  # Uncomment the block below when ChromaDB integration is ready:
-  # chromadb:
-  #   # image: chromadb/chroma
-  #   container_name: province-economy-chromadb
-  #   ports:
-  #     - "8000:8000"
-  #   volumes:
-  #     - ./chroma_data:/chroma/chroma
-  #   networks:
-  #     - app-network
-  #   # environment:
-  #   #   - IS_PERSISTENT=TRUE
-  #   # depends_on:
-  #   #   - backend
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: province-economy-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./chroma_data:/chroma/chroma
+    networks:
+      - app-network
+    environment:
+      - IS_PERSISTENT=TRUE
 
 networks:
   app-network:

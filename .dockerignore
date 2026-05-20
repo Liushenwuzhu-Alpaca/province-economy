@@ -24,6 +24,9 @@ data/results/
 # Archives (compressed files not needed in image)
 *.zip
 
+# ChromaDB data (volume-mounted)
+chroma_data/
+
 # Tool configs
 .python-version
 .sisyphus/

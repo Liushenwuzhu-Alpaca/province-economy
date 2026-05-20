@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>省域经济综合竞争力仪表盘</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>省域经济<br>竞争力仪表盘</h1>
+                <div class="subtitle">Province Economy Dashboard</div>
+            </div>
+            <div class="year-selector">
+                <label for="year-select">年份</label>
+                <select id="year-select"></select>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" data-chart="scoreMap" onclick="switchChart('scoreMap')">
+                    <span class="nav-icon">🗺️</span>
+                    <span class="nav-label">综合得分热力图</span>
+                </button>
+                <button class="nav-btn" data-chart="tierMap" onclick="switchChart('tierMap')">
+                    <span class="nav-icon">🏷️</span>
+                    <span class="nav-label">聚类梯队</span>
+                </button>
+                <button class="nav-btn" data-chart="radar" onclick="switchChart('radar')">
+                    <span class="nav-icon">📡</span>
+                    <span class="nav-label">雷达图</span>
+                </button>
+                <button class="nav-btn" data-chart="ranking" onclick="switchChart('ranking')">
+                    <span class="nav-icon">🏆</span>
+                    <span class="nav-label">排名榜</span>
+                </button>
+                <button class="nav-btn" data-chart="trend" onclick="switchChart('trend')">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-label">趋势图</span>
+                </button>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <div class="chart-area">
+                <div id="chart-container">
+                    <div class="loading-overlay" id="loading-overlay">
+                        <span class="loading-text">加载中...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-bar">
+                <input
+                    type="text"
+                    id="chat-input"
+                    placeholder="向智能助手提问关于省域经济数据..."
+                    autocomplete="off"
+                >
+                <button class="send-btn" id="send-btn">发送</button>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>

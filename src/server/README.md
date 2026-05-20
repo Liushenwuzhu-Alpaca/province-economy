@@ -107,6 +107,32 @@ curl http://localhost:8765/api/years
 
 ---
 
+### GET /api/trend
+
+返回所有可用年份的得分趋势数据（跨年度聚合），用于趋势图渲染。
+
+**请求示例**:
+```bash
+curl http://localhost:8765/api/trend
+```
+
+**返回结构**:
+```json
+{
+  "years": [2019, 2020, 2021, 2022, 2023, 2024],
+  "provinces": ["广东","江苏",...],
+  "series": [
+    {"province": "广东", "year": 2019, "score": 85.5},
+    {"province": "广东", "year": 2020, "score": 88.2},
+    ...
+  ]
+}
+```
+
+数据点为 `年份数 × 31 省`，按 `year` 升序排列。
+
+---
+
 ### GET /static/* — 静态资源
 
 前端 JS/CSS 文件，挂载在 `/static` 路径下。
@@ -142,6 +168,14 @@ top5 = sorted(data["ranking"]["rankings"], key=lambda x: x["rank"])[:5]
 province_idx = data["radar"]["provinces"].index("广东")
 guangdong_radar = dict(zip(data["radar"]["indicators"], data["radar"]["values"][province_idx]))
 # → {"GDP总量": 0.95, "GDP增速": 0.72, ...}
+
+# 5. 获取多年趋势数据
+trend = requests.get(f"{BASE}/api/trend").json()
+# trend["years"] → [2019, 2020, 2021, 2022, 2023, 2024]
+
+# 6. 查询某省多年趋势
+gd_trend = [s for s in trend["series"] if s["province"] == "广东"]
+# → [{"province":"广东","year":2019,"score":82.1}, ...]
 ```
 
 **注意**: 首次查询新年份时，服务会自动触发分析流水线（`main.py --year`），请求会阻塞 10–30 秒直到数据生成完毕。后续查询该年份为毫秒级响应。

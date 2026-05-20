@@ -22,6 +22,11 @@
 uv run python main.py --viz --year 2024
 ```
 
+```bash
+# 生成所有年份图表 + 跨年趋势图（2019-2024）
+uv run python main.py --all-years --viz
+```
+
 也可在代码中直接调用高层入口：
 
 ```python
@@ -40,7 +45,7 @@ render_year(scores, raw_df, year=2024)
 
 | 类型 | 文件 | 说明 |
 |------|------|------|
-| PNG | `map_{year}.png`, `radar_{year}.png`, `rank_{year}.png`, `trend_{year}.png` | 高分辨率位图 |
+| PNG | `map_{year}.png`, `radar_{year}.png`, `rank_{year}.png`, `08_趋势图_多省份对比.png`, `09_趋势图_东中西部对比.png` | 高分辨率位图（趋势图为 `--all-years` 专属输出） |
 | HTML | `map_{year}.html`, 等 | 内嵌 base64 PNG 的独立页面 |
 
 ## 设计说明

@@ -1,98 +1,100 @@
-# 数据抓取与清洗模块说明
+# 数据抓取与清洗模块
 
-本目录是项目中的数据获取与清洗模块，主要负责将国家统计局和统计年鉴中的原始数据整理为后续模型可以直接使用的标准化指标表。
+本模块负责将国家统计局和统计年鉴中的原始数据整理为后续模型可以直接使用的标准化指标表。
 
-## 完成的主要工作
+## 快速上手
 
-1. 搭建了统一的数据读取接口 `get_indicators(year)`。
+```bash
+# 安装依赖
+uv sync
 
-   该接口会返回指定年份的省域经济指标数据，当前支持 2023 年和 2024 年，输出结果为 31 个省份和 15 个指标。
+# 获取数据
+uv run python -c "
+from src.data import get_indicators
 
-2. 整合了多种数据来源。
-
-   当前数据来源包括国家统计局导出的官方 CSV、《中国统计年鉴》JPG 表格、OCR 识别结果和本地清洗缓存。
-
-3. 实现了官方 CSV 数据读取。
-
-   `nbs_exports.py` 用于读取 `data/raw/nbs_exports` 中的官方 CSV，并提取 GDP、产业增加值、收入、消费支出、CPI 等指标。
-
-4. 实现了统计年鉴 JPG 抓取与 OCR 解析。
-
-   `nbs_yearbook.py` 负责定位和下载统计年鉴表格图片，`yearbook_ocr.py` 负责从 JPG 表格中识别数据，并整理为省级指标表。
-
-5. 实现了数据清洗。
-
-   `cleaner.py` 负责统一省份名称、提取数值、检查 31 个省份是否齐全、处理缺失值，并输出数值型指标表。
-
-6. 建立了缓存机制。
-
-   清洗后的最终结果会写入 `data_cache/indicators_YYYY.csv`，避免每次运行都重新解析原始数据。
-
-7. 整理了数据复现工具。
-
-   `tools` 目录中保留了年鉴图片下载和 OCR 解析脚本，方便后续复现数据抓取过程。
+df = get_indicators(2024)
+print(df.shape)    # (31, 15)
+print(df.head())
+"
+```
 
 ## 对外接口
 
-项目其他部分应该优先使用下面的接口获取数据：
+### `get_indicators(year)`
 
 ```python
 from src.data import get_indicators
 
-df = get_indicators(2024)
+df = get_indicators(2024)  # 支持 2019-2024 任意年份
 ```
 
-返回结果：
+**参数**: `year` — 整数，取值 2019/2020/2021/2022/2023/2024
 
-- 行索引：`province`，表示省级行政区；
-- 列：15 个经济指标；
-- 类型：`pandas.DataFrame`。
+**返回**: `pandas.DataFrame`
+- 行索引: `province`（31 个省级行政区全称）
+- 列: 15 个经济指标（全部数值型，无缺失值）
+- 缺失值已用中位数填补
 
-## 当前指标
+**返回示例**:
 
-当前输出的 15 个指标包括：
-
-- `gdp`：地区生产总值，亿元。
-- `gdp_growth`：GDP 增速，%。
-- `primary_value`：第一产业增加值，亿元。
-- `secondary_value`：第二产业增加值，亿元。
-- `tertiary_value`：第三产业增加值，亿元。
-- `primary_share`：第一产业占 GDP 比重，%。
-- `secondary_share`：第二产业占 GDP 比重，%。
-- `tertiary_share`：第三产业占 GDP 比重，%。
-- `retail`：社会消费品零售总额，亿元。
-- `income`：居民人均可支配收入，元。
-- `consumption_expenditure`：居民人均消费支出，元。
-- `cpi`：居民消费价格指数，上年=100。
-- `unemployment`：失业率代理指标，%。
-- `fixed_invest`：固定资产投资增速，%。
-- `fiscal_revenue`：地方一般公共预算收入，亿元。
-
-## 文件说明
-
-- `__init__.py`：导出数据模块的主要接口。
-- `cleaner.py`：负责省份名称标准化、数值清洗、缺失值填补和最终字段检查。
-- `fetcher.py`：负责统一调度数据读取、缓存读取、缓存刷新和元数据写入。
-- `nbs_exports.py`：负责读取国家统计局导出的 CSV 文件。
-- `nbs_yearbook.py`：负责查找和下载统计年鉴 JPG 表格。
-- `yearbook_ocr.py`：负责 OCR 解析统计年鉴 JPG，并生成原始指标表。
-- `tools/`：存放数据抓取和 OCR 解析的复现脚本。
-
-## 运行示例
-
-```bash
-uv run python main.py
+```
+              gdp  gdp_growth  primary_value  ...  unemployment  fixed_invest  fiscal_revenue
+province                                          ...
+北京市    49670.2         5.1          112.2  ...       2.434767           3.2         6372.68
+天津市    17931.3         4.9          284.5  ...       1.887960           5.1         2134.20
+河北省    47448.1         5.4         4498.1  ...       0.278690           3.1         4310.85
+...
 ```
 
-也可以直接在 Python 中调用：
+**缓存机制**: 首次调用会从 `data/raw/ocr_outputs/` 读取原始数据并清洗，结果缓存到 `data_cache/indicators_{year}.csv`。后续调用直接读缓存。传 `refresh=True` 可强制重算。
+
+### `missing_value_report(df)`
 
 ```python
-from src.data import get_indicators
+from src.data import missing_value_report
 
-df = get_indicators(2024)
-print(df.head())
+report = missing_value_report(get_indicators(2024))
+print(report)
 ```
 
-## 与指标清洗检查模块的关系
+返回每列的缺失值统计。
 
-本目录主要完成数据获取和原始清洗。指标层面的质量检查放在 `src/indicators` 中，例如缺失值检查、省份覆盖检查、指标列完整性检查等。
+## 15 个指标说明
+
+| 代码 | 中文名称 | 单位 | 说明 |
+|------|---------|------|------|
+| `gdp` | 地区生产总值 | 亿元 | 按当年价格计算 |
+| `gdp_growth` | GDP增速 | % | 由GDP指数(上年=100)换算：指数 - 100 |
+| `primary_value` | 第一产业增加值 | 亿元 | 按当年价格计算 |
+| `secondary_value` | 第二产业增加值 | 亿元 | 按当年价格计算 |
+| `tertiary_value` | 第三产业增加值 | 亿元 | 缺少官方数据时由 GDP - 第一 - 第二 计算 |
+| `primary_share` | 第一产业占GDP比重 | % | 第一产业增加值 / GDP × 100 |
+| `secondary_share` | 第二产业占GDP比重 | % | 第二产业增加值 / GDP × 100 |
+| `tertiary_share` | 第三产业占GDP比重 | % | 第三产业增加值 / GDP × 100 |
+| `retail` | 社会消费品零售总额 | 亿元 | |
+| `income` | 居民人均可支配收入 | 元 | |
+| `consumption_expenditure` | 居民人均消费支出 | 元 | |
+| `cpi` | 居民消费价格指数 | 上年=100 | 100 代表物价不变 |
+| `unemployment` | 失业率代理指标 | % | 城镇登记失业人数 / (城镇就业人员 + 失业人数) × 100 |
+| `fixed_invest` | 固定资产投资增速 | % | 比上年增长 |
+| `fiscal_revenue` | 地方一般公共预算收入 | 亿元 | |
+
+> 模型层从中选取 10 个核心指标进行分析，定义见 `src/models/analyzer.py` 的 `ANALYSIS_INDICATORS`。
+
+## 模块文件
+
+| 文件 | 职责 |
+|------|------|
+| `__init__.py` | 导出 `get_indicators`、`create_template`、`missing_value_report` |
+| `fetcher.py` | 统一调度：缓存读取 → 原始数据读取 → NBS CSV 合并 → 清洗 → 缓存写入 |
+| `cleaner.py` | 省份名称标准化、数值清洗、31 省完整性检查、缺失值中位数填补 |
+| `nbs_exports.py` | 读取 `data/raw/nbs_exports/` 中的官方 CSV，按年份提取指标列 |
+| `nbs_yearbook.py` | 从中国统计年鉴官网定位并下载 JPG 表格图片 |
+| `yearbook_ocr.py` | OCR 解析年鉴 JPG 表格，提取分省数据 |
+| `tools/` | 鉴于图片下载和 OCR 解析的复现脚本 |
+
+## 数据来源
+
+1. **国家统计局导出 CSV** (`data/raw/nbs_exports/`) — 主要来源，覆盖 2019-2024 大部分指标
+2. **统计年鉴 JPG + OCR** — 用于补充 CSV 中缺失的指标（零售总额、财政、投资、失业等），仅 2023/2024
+3. **缓存** (`data_cache/`) — 清洗后自动生成，避免重复解析

@@ -8,3 +8,26 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Data cache (can be regenerated from raw data)
+data_cache/
+
+# Analysis results cache (can be regenerated)
+data/results/
+
+# Yearbook images (large binary files, downloaded from stats.gov.cn)
+data/raw/yearbook_*/
+*.jpg
+
+# Agent RAG vector database (can be rebuilt)
+agent/chroma_db/
+
+# Environment variables
+.env
+
+# Claude Code (not part of project)
+CLAUDE.md
+.claude/
+
+# Agent module (WIP, not ready)
+agent/

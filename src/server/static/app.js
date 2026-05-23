@@ -105,7 +105,9 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchYears();
     fetchTrendData();
     setupChatBar();
+    resizeChartSection();
     window.addEventListener('resize', function () {
+        resizeChartSection();
         if (currentChart) {
             currentChart.resize();
         }
@@ -797,8 +799,26 @@ function renderTrendChart() {
 }
 
 // ---------------------------------------------------------------------------
-// Chat bar
+// Chat — multi-turn, SSE streaming, Markdown + KaTeX, persistent during session
 // ---------------------------------------------------------------------------
+
+var chatHistory = [];   // API history [{role, content}]
+var chatMessages = [];  // UI state [{role, content, elementId}]
+var chatCollapsed = true; // Start collapsed
+var chatStreaming = false;
+
+// Resize chart section to fill the viewport
+function resizeChartSection() {
+    var section = document.getElementById('chart-section');
+    if (!section) return;
+    // viewport height - sidebar is handled by flex, we just need the wrapper height
+    var wrapper = document.getElementById('scroll-wrapper');
+    if (wrapper) {
+        var h = wrapper.clientHeight;
+        section.style.height = h + 'px';
+        section.style.minHeight = h + 'px';
+    }
+}
 
 function setupChatBar() {
     var input = document.getElementById('chat-input');
@@ -813,7 +833,272 @@ function setupChatBar() {
 }
 
 function handleChatSend() {
-    showToast('Agent 功能开发中，敬请期待...');
+    if (chatStreaming) return;
+
+    var input = document.getElementById('chat-input');
+    var sendBtn = document.getElementById('send-btn');
+    var message = input.value.trim();
+    if (!message) return;
+
+    input.value = '';
+
+    // Expand chat if collapsed
+    if (chatCollapsed) {
+        expandChat();
+    }
+
+    // Add user message
+    appendChatBubble('user', message);
+
+    // Add empty AI bubble
+    var aiBubbleId = appendChatBubble('ai', '');
+
+    chatStreaming = true;
+    input.disabled = true;
+    sendBtn.disabled = true;
+    sendBtn.textContent = '思考中...';
+
+    var fullText = '';
+    var aiEl = document.getElementById(aiBubbleId);
+
+    fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message, history: chatHistory }),
+    })
+    .then(function (response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+
+        function read() {
+            reader.read().then(function (result) {
+                if (result.done) {
+                    finishChat(fullText);
+                    return;
+                }
+                buffer += decoder.decode(result.value, { stream: true });
+
+                var lines = buffer.split('\n');
+                buffer = '';
+
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i];
+                    if (line.startsWith('event: ')) {
+                        var eventType = line.substring(7).trim();
+                        var dataLine = '';
+                        for (var j = i + 1; j < lines.length; j++) {
+                            if (lines[j].startsWith('data: ')) {
+                                dataLine = lines[j].substring(6);
+                                break;
+                            }
+                        }
+                        if (!dataLine) {
+                            buffer = lines.slice(i).join('\n');
+                            break;
+                        }
+
+                        try { var data = JSON.parse(dataLine); } catch (e) { continue; }
+
+                        if (eventType === 'token' && data.text) {
+                            fullText += data.text;
+                            aiEl.innerHTML = renderMd(fullText);
+                            renderKaTeX(aiEl);
+                            scrollChat();
+                        } else if (eventType === 'tool') {
+                            var toolInfo = '[调用工具: ' + data.name + ']';
+                            aiEl.innerHTML = renderMd(fullText) + '<div class="tool-call">' + escapeHtml(toolInfo) + '</div>';
+                            scrollChat();
+                        } else if (eventType === 'error') {
+                            fullText = data.text || '发生错误';
+                            aiEl.innerHTML = '<div class="chat-error">' + escapeHtml(fullText) + '</div>';
+                        }
+                    }
+                }
+
+                read();
+            }).catch(function (err) {
+                if (!fullText) {
+                    aiEl.innerHTML = '<div class="chat-error">连接中断</div>';
+                }
+                finishChat(fullText);
+            });
+        }
+
+        read();
+    })
+    .catch(function (err) {
+        aiEl.innerHTML = '<div class="chat-error">请求失败</div>';
+        finishChat(fullText);
+    });
+
+    function finishChat(text) {
+        chatHistory.push({ role: 'user', content: message });
+        if (text) {
+            chatHistory.push({ role: 'assistant', content: text });
+        }
+        if (chatHistory.length > 20) {
+            chatHistory = chatHistory.slice(-20);
+        }
+        chatMessages.push({ role: 'user', content: message });
+        chatMessages.push({ role: 'assistant', content: text });
+
+        // Final KaTeX render
+        renderKaTeX(aiEl);
+
+        chatStreaming = false;
+        input.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.textContent = '发送';
+        input.focus();
+        updateChatToggle();
+    }
+}
+
+// Collapse / expand chat panel
+function collapseChat() {
+    chatCollapsed = true;
+    document.getElementById('chat-panel').classList.add('collapsed');
+    document.getElementById('chat-toggle').style.display = 'flex';
+    updateChatToggle();
+    resizeChartSection();
+    // Scroll wrapper back to top to show chart
+    document.getElementById('scroll-wrapper').scrollTop = 0;
+}
+
+function expandChat() {
+    chatCollapsed = false;
+    document.getElementById('chat-panel').classList.remove('collapsed');
+    document.getElementById('chat-toggle').style.display = 'none';
+    // Chart keeps its full height, chat appears below
+    scrollChat();
+}
+
+function updateChatToggle() {
+    var count = chatMessages.length;
+    var countEl = document.getElementById('chat-toggle-count');
+    if (countEl) {
+        countEl.textContent = count > 0 ? count + ' 条对话' : '';
+    }
+}
+
+// Override switchChart to collapse chat when switching charts/years
+var _origSwitchChart = switchChart;
+switchChart = function (type) {
+    if (chatMessages.length > 0 && !chatCollapsed) {
+        collapseChat();
+    }
+    _origSwitchChart(type);
+    resizeChartSection();
+};
+
+function appendChatBubble(role, content) {
+    var panel = document.getElementById('chat-messages');
+    if (!panel) return '';
+
+    var bubbleId = 'bubble-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+
+    var wrapper = document.createElement('div');
+    if (role === 'user') {
+        wrapper.className = 'chat-question';
+        wrapper.innerHTML =
+            '<span class="chat-avatar chat-avatar-user">你</span>' +
+            '<div class="chat-bubble chat-bubble-user">' + escapeHtml(content) + '</div>';
+    } else {
+        wrapper.className = 'chat-answer';
+        wrapper.innerHTML =
+            '<span class="chat-avatar chat-avatar-ai">AI</span>' +
+            '<div class="chat-bubble chat-bubble-ai" id="' + bubbleId + '">' +
+            (content ? renderMd(content) : '<span class="chat-cursor">▌</span>') +
+            '</div>';
+    }
+
+    panel.appendChild(wrapper);
+    scrollChat();
+    return bubbleId;
+}
+
+function scrollChat() {
+    var wrapper = document.getElementById('scroll-wrapper');
+    if (wrapper) {
+        wrapper.scrollTop = wrapper.scrollHeight;
+    }
+}
+
+// Markdown + KaTeX rendering
+function renderMd(text) {
+    // Protect LaTeX from marked.js mangling
+    var latexBlocks = [];
+    var protected_ = text;
+
+    // Protect $$...$$ (display math)
+    protected_ = protected_.replace(/\$\$([\s\S]*?)\$\$/g, function (m) {
+        latexBlocks.push({ display: true, content: m.slice(2, -2) });
+        return 'LATEXBLOCK' + (latexBlocks.length - 1) + 'END';
+    });
+
+    // Protect $...$ (inline math)
+    protected_ = protected_.replace(/\$([^\$\n]+?)\$/g, function (m) {
+        latexBlocks.push({ display: false, content: m.slice(1, -1) });
+        return 'LATEXBLOCK' + (latexBlocks.length - 1) + 'END';
+    });
+
+    // Protect \[...\] (display math)
+    protected_ = protected_.replace(/\\\[([\s\S]*?)\\\]/g, function (m) {
+        latexBlocks.push({ display: true, content: m.slice(2, -2) });
+        return 'LATEXBLOCK' + (latexBlocks.length - 1) + 'END';
+    });
+
+    // Protect \(...\) (inline math)
+    protected_ = protected_.replace(/\\\(([\s\S]*?)\\\)/g, function (m) {
+        latexBlocks.push({ display: false, content: m.slice(2, -2) });
+        return 'LATEXBLOCK' + (latexBlocks.length - 1) + 'END';
+    });
+
+    // Render markdown
+    var html;
+    if (typeof marked !== 'undefined' && marked.parse) {
+        try { html = marked.parse(protected_); } catch (e) { html = escapeHtml(protected_); }
+    } else {
+        html = escapeHtml(protected_);
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\n/g, '<br>');
+    }
+
+    // Restore LaTeX placeholders
+    html = html.replace(/LATEXBLOCK(\d+)END/g, function (m, idx) {
+        var block = latexBlocks[parseInt(idx)];
+        if (!block) return '';
+        try {
+            return katex.renderToString(block.content, {
+                displayMode: block.display,
+                throwOnError: false,
+            });
+        } catch (e) {
+            return escapeHtml(block.content);
+        }
+    });
+
+    return html;
+}
+
+// Re-render KaTeX in a DOM element (for already-rendered markdown)
+function renderKaTeX(el) {
+    if (typeof renderMathInElement === 'function') {
+        try {
+            renderMathInElement(el, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\[', right: '\\]', display: true },
+                    { left: '\\(', right: '\\)', display: false },
+                ],
+                throwOnError: false,
+            });
+        } catch (e) { /* ignore */ }
+    }
 }
 
 function showToast(message) {

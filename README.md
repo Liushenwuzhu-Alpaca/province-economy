@@ -110,9 +110,38 @@ chmod +x cloudflared
 
 ## 开发中
 
-| 功能             | 说明                                                       |
-| ---------------- | ---------------------------------------------------------- |
-| Agent 智能对话   | 基于 RAG 的省域经济数据问答助手，接入仪表盘对话框             |
+（暂无）
+
+## AI 智能助手
+
+仪表盘底部的对话框接入了 AI Agent，支持自然语言提问：
+
+- **多轮对话**：支持上下文连续追问
+- **流式输出**：回答实时逐字生成
+- **Markdown 渲染**：表格、列表、加粗等格式自动渲染
+
+### 配置
+
+复制 `.env.example` 为 `.env`，填入 API 密钥：
+
+```bash
+cp .env.example .env
+```
+
+支持两种 API 后端（通过 `API_TYPE` 切换）：
+
+| API_TYPE | 说明 | 配置项 |
+| --- | --- | --- |
+| `anthropic`（默认） | Anthropic Claude 原版 API | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` |
+| `openai` | OpenAI 兼容格式（智谱GLM、DeepSeek等） | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` |
+
+### 示例问题
+
+- "广东为什么排第一？"
+- "2024年北京和上海谁更强？"
+- "第一梯队有哪些省？"
+- "吉林省排名有什么变化？"
+- "熵权法是怎么计算权重的？"
 
 ## 技术栈
 
@@ -121,6 +150,7 @@ chmod +x cloudflared
 | 数据分析       | NumPy, Pandas, Scikit-learn        |
 | 静态可视化     | Matplotlib                         |
 | 交互式仪表盘   | FastAPI, Uvicorn, ECharts          |
+| AI 智能助手    | Anthropic Claude / OpenAI 兼容     |
 | 容器化部署     | Docker, Docker Compose, nginx      |
 | 向量数据库     | ChromaDB                           |
 | 包管理         | uv                                 |

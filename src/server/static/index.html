@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>省域经济综合竞争力仪表盘</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="app-layout">
@@ -42,14 +46,34 @@
         </aside>
 
         <main class="main-content">
-            <div class="chart-area">
-                <div id="chart-container">
-                    <div class="loading-overlay" id="loading-overlay">
-                        <span class="loading-text">加载中...</span>
+            <!-- Scrollable area: chart + chat -->
+            <div class="scroll-wrapper" id="scroll-wrapper">
+                <!-- Chart: fills entire viewport when no chat -->
+                <div class="chart-section" id="chart-section">
+                    <div id="chart-container">
+                        <div class="loading-overlay" id="loading-overlay">
+                            <span class="loading-text">加载中...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat toggle: shown when chat is collapsed -->
+                <div class="chat-toggle" id="chat-toggle" style="display:none" onclick="expandChat()">
+                    <span class="chat-toggle-icon">💬</span>
+                    <span class="chat-toggle-text">展开对话</span>
+                    <span class="chat-toggle-count" id="chat-toggle-count"></span>
+                </div>
+
+                <!-- Chat messages: below chart, collapsible -->
+                <div class="chat-panel collapsed" id="chat-panel">
+                    <div class="chat-messages" id="chat-messages"></div>
+                    <div class="chat-back" id="chat-back" onclick="collapseChat()">
+                        <span>↑ 回到图表</span>
                     </div>
                 </div>
             </div>
 
+            <!-- Input bar: always fixed at bottom -->
             <div class="chat-bar">
                 <input
                     type="text"

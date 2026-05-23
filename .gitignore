@@ -20,7 +20,10 @@ data/raw/yearbook_*/
 *.jpg
 
 # Agent RAG vector database (can be rebuilt)
-agent/chroma_db/
+src/agent/chroma_db/
+
+# Agent logs
+logs/
 
 # Environment variables
 .env
@@ -28,6 +31,3 @@ agent/chroma_db/
 # Claude Code (not part of project)
 CLAUDE.md
 .claude/
-
-# Agent module vector DB (can be rebuilt)
-agent/chroma_db/

@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pandas as pd
 
-RESULTS_DIR = Path(__file__).parent.parent / "data" / "results"
-CACHE_DIR = Path(__file__).parent.parent / "data_cache"
+RESULTS_DIR = Path(__file__).parent.parent.parent / "data" / "results"
+CACHE_DIR = Path(__file__).parent.parent.parent / "data_cache"
 
 YEARS = [2019, 2020, 2021, 2022, 2023, 2024]
 
@@ -207,11 +207,27 @@ def search_knowledge(query: str, top_k: int = 5) -> str:
         query: 搜索问题
         top_k: 返回条数
     """
-    from agent.rag import get_context
+    from src.agent.rag import get_context
     context = get_context(query, top_k)
     if not context:
         return "知识库中未找到相关内容"
     return context
+
+
+# ---------- Tool 7: 展示图表 ----------
+
+def show_chart(chart_type: str, year: int | None = None, provinces: list[str] | None = None) -> str:
+    """切换仪表盘上方的图表展示。当你向用户解释排名、趋势、梯队等内容时，调用此工具自动切换到对应图表。
+
+    Args:
+        chart_type: 图表类型: ranking(排名榜), scoreMap(热力图), tierMap(聚类梯队),
+                    radar(雷达图), trend(趋势图)
+        year: 年份，默认2024
+        provinces: 用户关心的省份全称列表，排名图会滚动定位到这些省份
+    """
+    if year is None:
+        year = 2024
+    return f"<!--chart:{chart_type}:{year}-->"
 
 
 # ---------- Tool registry for Claude ----------
@@ -287,6 +303,26 @@ TOOL_DEFINITIONS = [
             "required": ["query"],
         },
     },
+    {
+        "name": "show_chart",
+        "description": "切换仪表盘上方图表并聚焦到用户关心的省份。如果不传provinces参数，雷达图和趋势图只会显示默认的前5名，排名图不会滚动定位。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "chart_type": {
+                    "type": "string",
+                    "description": "图表类型: ranking(排名榜), scoreMap(热力图), tierMap(聚类梯队), radar(雷达图), trend(趋势图)",
+                },
+                "year": {"type": "integer", "description": "年份，默认2024", "default": None},
+                "provinces": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "用户提及的所有省份全称（如['广东省','江苏省']）。排名图会滚动定位到这些省份，雷达图和趋势图会只显示这些省份。务必传入用户关心的省份，否则图表不会聚焦。",
+                },
+            },
+            "required": ["chart_type"],
+        },
+    },
 ]
 
 # Map tool name → function
@@ -297,4 +333,5 @@ TOOL_MAP = {
     "get_weights": get_weights,
     "compare_years": compare_years,
     "search_knowledge": search_knowledge,
+    "show_chart": show_chart,
 }

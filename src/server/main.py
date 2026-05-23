@@ -95,16 +95,25 @@ def api_trend() -> dict[str, Any]:
 @app.post("/api/chat")
 async def api_chat(body: dict) -> StreamingResponse:
     """SSE streaming chat endpoint."""
-    from agent.agent import chat_stream
+    from src.agent.agent import chat_stream
 
-    user_message = body.get("message", "").strip()
+    user_message = (body.get("message") or "").strip()
     if not user_message:
-        def empty():
+        def _empty():
             yield 'event: error\ndata: {"text": "请输入您的问题。"}\n\n'
             yield 'event: done\ndata: {}\n\n'
-        return StreamingResponse(empty(), media_type="text/event-stream")
+        return StreamingResponse(_empty(), media_type="text/event-stream")
+
+    # Input validation
+    if len(user_message) > 2000:
+        def _too_long():
+            yield 'event: error\ndata: {"text": "问题过长，请限制在2000字符以内。"}\n\n'
+            yield 'event: done\ndata: {}\n\n'
+        return StreamingResponse(_too_long(), media_type="text/event-stream")
 
     history = body.get("history")
+    if isinstance(history, list):
+        history = history[-20:]
 
     return StreamingResponse(
         chat_stream(user_message, history=history),

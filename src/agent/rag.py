@@ -6,11 +6,16 @@ import hashlib
 from pathlib import Path
 
 import chromadb
+from chromadb.utils import embedding_functions
 
 KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
 CHROMA_DIR = Path(__file__).parent / "chroma_db"
 
 COLLECTION_NAME = "province_economy_kb"
+
+EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"
+
+_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL)
 
 # ---------------------------------------------------------------------------
 # Chunking
@@ -69,6 +74,7 @@ def build_index(force: bool = False) -> None:
     collection = client.get_or_create_collection(
         name=COLLECTION_NAME,
         metadata={"hnsw:space": "cosine"},
+        embedding_function=_ef,
     )
 
     ids, metadatas, documents = _load_documents()
@@ -105,11 +111,11 @@ def search(query: str, top_k: int = 5) -> list[dict]:
     """Search the knowledge base and return top-k results."""
     client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     try:
-        collection = client.get_collection(name=COLLECTION_NAME)
+        collection = client.get_collection(name=COLLECTION_NAME, embedding_function=_ef)
     except Exception:
         # Collection doesn't exist yet, build it
         build_index()
-        collection = client.get_collection(name=COLLECTION_NAME)
+        collection = client.get_collection(name=COLLECTION_NAME, embedding_function=_ef)
 
     if collection.count() == 0:
         return []

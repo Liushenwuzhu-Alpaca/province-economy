@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .data_api import load_all_data, load_trend_data
@@ -90,6 +90,27 @@ def api_years() -> dict[str, Any]:
 @app.get("/api/trend")
 def api_trend() -> dict[str, Any]:
     return load_trend_data()
+
+
+@app.post("/api/chat")
+async def api_chat(body: dict) -> StreamingResponse:
+    """SSE streaming chat endpoint."""
+    from agent.agent import chat_stream
+
+    user_message = body.get("message", "").strip()
+    if not user_message:
+        def empty():
+            yield 'event: error\ndata: {"text": "请输入您的问题。"}\n\n'
+            yield 'event: done\ndata: {}\n\n'
+        return StreamingResponse(empty(), media_type="text/event-stream")
+
+    history = body.get("history")
+
+    return StreamingResponse(
+        chat_stream(user_message, history=history),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ---------------------------------------------------------------------------

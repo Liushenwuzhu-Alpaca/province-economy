@@ -29,5 +29,5 @@ agent/chroma_db/
 CLAUDE.md
 .claude/
 
-# Agent module (WIP, not ready)
-agent/
+# Agent module vector DB (can be rebuilt)
+agent/chroma_db/

@@ -97,6 +97,7 @@ var dashboardData = null;
 var currentYear = 2024;
 var trendData = null;
 var pendingProvinces = null;
+var pendingChartType = null;
 
 // ---------------------------------------------------------------------------
 // Initialization
@@ -141,8 +142,10 @@ function fetchData(year) {
             echarts.registerMap('china', data.geojson);
             hideLoading();
             var p = pendingProvinces;
+            var ct = pendingChartType || currentType;
             pendingProvinces = null;
-            switchChart(currentType, p);
+            pendingChartType = null;
+            switchChart(ct, p);
         })
         .catch(function (err) {
             hideLoading();
@@ -901,15 +904,15 @@ var sseMaxRetries = 3;
 
 // Session persistence: generate or restore session ID
 function initSession() {
-    var stored = localStorage.getItem('pe_session_id');
+    var stored = sessionStorage.getItem('pe_session_id');
     if (stored) {
         sessionId = stored;
     } else {
         sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
-        localStorage.setItem('pe_session_id', sessionId);
+        sessionStorage.setItem('pe_session_id', sessionId);
     }
     // Restore chat messages from last session
-    var savedMsgs = localStorage.getItem('pe_chat_messages');
+    var savedMsgs = sessionStorage.getItem('pe_chat_messages');
     if (savedMsgs) {
         try {
             var parsed = JSON.parse(savedMsgs);
@@ -919,11 +922,16 @@ function initSession() {
             }
         } catch (e) { /* ignore corrupt data */ }
     }
+    // Show chat toggle button if there are restored messages
+    if (chatMessages.length > 0) {
+        document.getElementById('chat-toggle').style.display = 'flex';
+        updateChatToggle();
+    }
 }
 
 function saveSession() {
     try {
-        localStorage.setItem('pe_chat_messages', JSON.stringify(chatMessages.slice(-20)));
+        sessionStorage.setItem('pe_chat_messages', JSON.stringify(chatMessages.slice(-20)));
     } catch (e) { /* quota exceeded, ignore */ }
 }
 
@@ -1036,6 +1044,7 @@ function handleChatSend() {
                                 // Switch year if different
                                 if (chartYear !== currentYear) {
                                     pendingProvinces = provinces;
+                                    pendingChartType = chartType;
                                     var yearSelect = document.getElementById('year-select');
                                     if (yearSelect) {
                                         yearSelect.value = chartYear;
@@ -1122,6 +1131,7 @@ function handleChatSend() {
                                     var cp = d2.input.provinces || null;
                                     if (cy !== currentYear) {
                                         pendingProvinces = cp;
+                                        pendingChartType = ct;
                                         var ys = document.getElementById('year-select');
                                         if (ys) { ys.value = cy; fetchData(cy); }
                                     } else {

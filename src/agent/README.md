@@ -184,7 +184,7 @@ data_cache/indicators_2024.csv
 uv run python -c "from src.agent.rag import build_index; build_index()"
 ```
 
-首次运行会自动下载嵌入模型（约 90MB）。索引构建完成后 `src/agent/chroma_db/` 目录会出现。
+首次运行会自动下载嵌入模型（约 90MB），**需要网络能访问 HuggingFace**（开梯子或直连均可）。模型下载后会缓存到本地，之后运行不需要联网。如果已构建过索引则跳过此步。
 
 ### 4. 配置 API Key
 
@@ -311,6 +311,13 @@ src/agent/
 ```
 
 ## 测试
+
+测试前需确保：
+1. 已运行 `uv run python main.py --year 2024` 生成数据分析结果（`data/results/`）
+2. 已构建 RAG 向量索引（首次需联网下载嵌入模型）：
+   ```bash
+   uv run python -c "from src.agent.rag import build_index; build_index()"
+   ```
 
 ```bash
 # 工具 + RAG 单元测试（不需要 API Key）

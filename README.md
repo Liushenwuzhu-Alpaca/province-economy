@@ -1,4 +1,4 @@
-# 省域经济综合竞争力评价
+# Econova：省域经济综合竞争力评价
 
 基于熵权法 + PCA + K-Means 的中国省域经济综合竞争力评价系统。
 支持静态图表输出（适配 PPT / 报告）和交互式 Web 仪表盘。
@@ -51,12 +51,10 @@ uv run python -m src.server.main
 
 ## Docker 部署
 
-使用 Docker Compose 一键部署三容器架构：
+使用 Docker Compose 一键部署双容器架构：
 
 - **nginx**：前端静态资源 + 反向代理（端口 80）
-- **backend**：FastAPI 分析服务（内部 8765）
-- **chromadb**：向量数据库（内部 8000），用于 RAG 智能问答
-
+- **backend**：FastAPI 分析服务 + Agent 分析服务（内部 8765）
 ```bash
 # 启动全部服务
 docker compose up -d
@@ -91,7 +89,7 @@ chmod +x cloudflared
 ├── main.py                  # CLI 入口
 ├── pyproject.toml           # 项目配置与依赖
 ├── Dockerfile               # 后端容器镜像
-├── docker-compose.yml       # 三容器编排
+├── docker-compose.yml       # 容器编排
 ├── .dockerignore            # Docker 构建忽略文件
 ├── nginx/
 │   └── default.conf         # nginx 反向代理配置
@@ -139,7 +137,7 @@ chmod +x cloudflared
 
 ### 配置
 
-复制 `.env.example` 为 `.env`，填入 API 密钥：
+复制 `.env.example` 为 `.env`，填入 API 密钥（Linux环境和Docker部署请在变量名前加上export）：
 
 ```bash
 cp .env.example .env

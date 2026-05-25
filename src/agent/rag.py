@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 
 import os
+
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 import chromadb
@@ -24,13 +25,24 @@ _ef = None
 def _get_ef():
     global _ef
     if _ef is None:
-        _ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL)
+        _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name=EMBEDDING_MODEL
+        )
     return _ef
+
+
+def _get_client():
+    host = os.environ.get("CHROMA_HOST")
+    if host:
+        port = int(os.environ.get("CHROMA_PORT", "8000"))
+        return chromadb.HttpClient(host=host, port=port)
+    return chromadb.PersistentClient(path=str(CHROMA_DIR))
 
 
 # ---------------------------------------------------------------------------
 # Chunking
 # ---------------------------------------------------------------------------
+
 
 def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str]:
     """Split text into overlapping chunks by character count, breaking at newlines."""
@@ -65,7 +77,9 @@ def _load_documents() -> tuple[list[str], list[dict], list[str]]:
         text = md_file.read_text(encoding="utf-8")
         chunks = _chunk_text(text)
         for i, chunk in enumerate(chunks):
-            chunk_id = hashlib.md5(f"{md_file.name}:{i}:{chunk[:50]}".encode()).hexdigest()[:12]
+            chunk_id = hashlib.md5(
+                f"{md_file.name}:{i}:{chunk[:50]}".encode()
+            ).hexdigest()[:12]
             ids.append(chunk_id)
             metadatas.append({"source": md_file.name, "chunk_index": i})
             documents.append(chunk)
@@ -77,10 +91,11 @@ def _load_documents() -> tuple[list[str], list[dict], list[str]]:
 # Index management
 # ---------------------------------------------------------------------------
 
+
 def build_index(force: bool = False) -> None:
     """Build or rebuild the ChromaDB index from knowledge files."""
     CHROMA_DIR.mkdir(parents=True, exist_ok=True)
-    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+    client = _get_client()
 
     collection = client.get_or_create_collection(
         name=COLLECTION_NAME,
@@ -118,20 +133,27 @@ def build_index(force: bool = False) -> None:
 # Search
 # ---------------------------------------------------------------------------
 
+
 def search(query: str, top_k: int = 5) -> list[dict]:
     """Search the knowledge base and return top-k results."""
-    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+    client = _get_client()
     try:
-        collection = client.get_collection(name=COLLECTION_NAME, embedding_function=_get_ef())
+        collection = client.get_collection(
+            name=COLLECTION_NAME, embedding_function=_get_ef()
+        )
     except Exception:
         # Collection doesn't exist yet, build it
         build_index()
-        collection = client.get_collection(name=COLLECTION_NAME, embedding_function=_get_ef())
+        collection = client.get_collection(
+            name=COLLECTION_NAME, embedding_function=_get_ef()
+        )
 
     if collection.count() == 0:
         return []
 
-    results = collection.query(query_texts=[query], n_results=min(top_k, collection.count()))
+    results = collection.query(
+        query_texts=[query], n_results=min(top_k, collection.count())
+    )
 
     output: list[dict] = []
     if results and results["documents"] and results["documents"][0]:

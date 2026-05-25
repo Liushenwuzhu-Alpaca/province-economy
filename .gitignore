@@ -10,7 +10,7 @@ wheels/
 .venv
 
 # Data cache (can be regenerated from raw data)
-data_cache/
+
 
 # Analysis results cache (can be regenerated)
 data/results/
@@ -31,3 +31,4 @@ logs/
 # Claude Code (not part of project)
 CLAUDE.md
 .claude/
+.sisyphus/

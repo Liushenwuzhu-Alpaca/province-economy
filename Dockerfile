@@ -46,6 +46,8 @@ COPY main.py /app/
 # Copy pre-processed data (indicators CSV + GeoJSON ~100KB)
 COPY data_cache/ /app/data_cache/
 
+COPY data_cache/huggingface/ /root/.cache/huggingface/
+
 # Environment
 ENV PATH="/app/.venv/bin:$PATH" \
     PROJ_ROOT=/app \
@@ -53,8 +55,11 @@ ENV PATH="/app/.venv/bin:$PATH" \
     LANG=C.UTF-8
 
 # Non-root user
-RUN useradd --create-home appuser
-USER appuser
+# RUN useradd --create-home appuser
+
+# RUN chown -R appuser:appuser /home/appuser/.cache
+
+# USER appuser
 WORKDIR /app
 
 # Expose FastAPI port

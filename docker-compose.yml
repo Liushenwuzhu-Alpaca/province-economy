@@ -19,27 +19,18 @@ services:
   # Backend: FastAPI server (API only, no static files in production)
   # =========================================================================
   backend:
-    build: .
+    user: root
+    build:
+      context: .
+    # command: mv /home/appuser/.cache/huggingface/ /root/.cache
     container_name: province-economy-backend
+    env_file:
+      - .env
     volumes:
       - ./data/results:/app/data/results
+      - ./src/agent/chroma_db:/app/src/agent/chroma_db
     networks:
       - app-network
-
-  # =========================================================================
-  # ChromaDB: Vector Database for RAG Knowledge Base
-  # =========================================================================
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: province-economy-chromadb
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./chroma_data:/chroma/chroma
-    networks:
-      - app-network
-    environment:
-      - IS_PERSISTENT=TRUE
 
 networks:
   app-network:

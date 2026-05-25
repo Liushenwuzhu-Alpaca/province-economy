@@ -33,3 +33,9 @@ chroma_data/
 
 # IDE/Editor
 .ruff_cache/
+
+# Secrets (API keys)
+.env
+
+# Local vector index (should be rebuilt in container)
+src/agent/chroma_db/

@@ -96,16 +96,30 @@ var currentType = 'scoreMap';
 var dashboardData = null;
 var currentYear = 2024;
 var trendData = null;
+var pendingProvinces = null;
+var pendingChartType = null;
 
 // ---------------------------------------------------------------------------
 // Initialization
 // ---------------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', function () {
+    initSession();
     fetchYears();
     fetchTrendData();
     setupChatBar();
+    resizeChartSection();
+    // Restore chat bubbles from previous session
+    if (chatMessages.length > 0 && chatMessages[0].content) {
+        for (var cm = 0; cm < chatMessages.length; cm++) {
+            var msg = chatMessages[cm];
+            if (msg.content) {
+                appendChatBubble(msg.role, msg.content);
+            }
+        }
+    }
     window.addEventListener('resize', function () {
+        resizeChartSection();
         if (currentChart) {
             currentChart.resize();
         }
@@ -127,7 +141,11 @@ function fetchData(year) {
             // Register China map from API GeoJSON (ECharts 5 no longer bundles maps)
             echarts.registerMap('china', data.geojson);
             hideLoading();
-            switchChart(currentType);
+            var p = pendingProvinces;
+            var ct = pendingChartType || currentType;
+            pendingProvinces = null;
+            pendingChartType = null;
+            switchChart(ct, p);
         })
         .catch(function (err) {
             hideLoading();
@@ -173,7 +191,7 @@ function fetchYears() {
 // Chart switching
 // ---------------------------------------------------------------------------
 
-function switchChart(type) {
+function switchChart(type, provinces) {
     if (!dashboardData) {
         return;
     }
@@ -197,13 +215,13 @@ function switchChart(type) {
             renderTierMap(dashboardData);
             break;
         case 'radar':
-            renderRadarChart(dashboardData);
+            renderRadarChart(dashboardData, provinces);
             break;
         case 'ranking':
-            renderRankingChart(dashboardData);
+            renderRankingChart(dashboardData, provinces);
             break;
         case 'trend':
-            renderTrendChart();
+            renderTrendChart(provinces);
             break;
     }
 
@@ -480,66 +498,78 @@ function renderTierMap(data) {
 // 3. Radar chart (top 5 provinces)
 // ---------------------------------------------------------------------------
 
-function renderRadarChart(data) {
-    var provinces = data.radar.provinces;
+function renderRadarChart(data, provinces) {
+    var radarProvinces = data.radar.provinces;
     var indicators = data.radar.indicators;
     var values = data.radar.values;
     var scoreProvinces = data.scores.provinces;
     var scores = data.scores.scores;
 
-    // Build province -> score map for ranking
-    var scoreMap = {};
-    for (var i = 0; i < scoreProvinces.length; i++) {
-        scoreMap[scoreProvinces[i]] = scores[i];
+    // Build province -> index map
+    var provIndex = {};
+    for (var i = 0; i < radarProvinces.length; i++) {
+        provIndex[radarProvinces[i]] = i;
     }
 
-    // Sort provinces by score descending to find top 5
-    var sortedProvinces = provinces.slice().sort(function (a, b) {
-        return (scoreMap[b] || 0) - (scoreMap[a] || 0);
-    });
-    var top5Set = {};
-    for (var t = 0; t < Math.min(5, sortedProvinces.length); t++) {
-        top5Set[sortedProvinces[t]] = true;
+    // Build score map for ranking
+    var scoreMap = {};
+    for (var j = 0; j < scoreProvinces.length; j++) {
+        scoreMap[scoreProvinces[j]] = scores[j];
+    }
+
+    // Determine which provinces are selected by default
+    var selectedSet = {};
+    var titleText;
+    if (provinces && provinces.length) {
+        for (var p = 0; p < provinces.length; p++) {
+            if (provIndex[provinces[p]] !== undefined) {
+                selectedSet[provinces[p]] = true;
+            }
+        }
+        if (Object.keys(selectedSet).length === 0) {
+            // Fallback: top 5 by score
+            var fb = radarProvinces.slice().sort(function (a, b) { return (scoreMap[b] || 0) - (scoreMap[a] || 0); });
+            var fbTop = fb.slice(0, 5);
+            for (var ti = 0; ti < fbTop.length; ti++) { selectedSet[fbTop[ti]] = true; }
+        }
+        titleText = '省域经济竞争力雷达图（默认显示: ' + Object.keys(selectedSet).join('/') + '，点击图例切换）';
+    } else {
+        var sorted = radarProvinces.slice().sort(function (a, b) { return (scoreMap[b] || 0) - (scoreMap[a] || 0); });
+        var top5 = sorted.slice(0, 5);
+        for (var t = 0; t < top5.length; t++) { selectedSet[top5[t]] = true; }
+        titleText = '省域经济竞争力雷达图（默认前5名，点击图例切换）';
     }
 
     // Build radar indicators
     var radarIndicators = [];
     for (var k = 0; k < indicators.length; k++) {
-        radarIndicators.push({
-            name: indicators[k],
-            max: 1,
-        });
+        radarIndicators.push({ name: indicators[k], max: 1 });
     }
 
-    // Build series data for ALL 31 provinces
+    // Build series data for ALL provinces, but default-select only specified ones
     var seriesData = [];
     var legendSelected = {};
-    for (var m = 0; m < provinces.length; m++) {
-        var name = provinces[m];
+    for (var m = 0; m < radarProvinces.length; m++) {
+        var name = radarProvinces[m];
         seriesData.push({
             value: values[m],
             name: name,
             lineStyle: { width: 2 },
             areaStyle: { opacity: 0.1 },
         });
-        legendSelected[name] = !!top5Set[name];
+        legendSelected[name] = !!selectedSet[name];
     }
 
     var option = {
         backgroundColor: '#1e2a45',
         color: PROVINCE_PALETTE,
         title: {
-            text: '省域经济竞争力雷达图（全部省份，点击图例切换显示）',
-            left: 'center',
-            top: 16,
-            textStyle: {
-                color: '#e0e0e0',
-                fontSize: 18,
-                fontWeight: 600,
-            },
+            text: titleText,
+            left: 'center', top: 16,
+            textStyle: { color: '#e0e0e0', fontSize: 18, fontWeight: 600 },
         },
         legend: {
-            data: provinces,
+            data: radarProvinces,
             selected: legendSelected,
             bottom: 16,
             textStyle: { color: '#a0a0b8', fontSize: 12 },
@@ -548,26 +578,12 @@ function renderRadarChart(data) {
             indicator: radarIndicators,
             center: ['50%', '52%'],
             radius: '65%',
-            axisName: {
-                color: '#a0a0b8',
-                fontSize: 11,
-            },
-            splitArea: {
-                areaStyle: {
-                    color: ['rgba(15, 52, 96, 0.3)', 'rgba(15, 52, 96, 0.15)'],
-                },
-            },
-            splitLine: {
-                lineStyle: { color: 'rgba(160, 160, 184, 0.2)' },
-            },
-            axisLine: {
-                lineStyle: { color: 'rgba(160, 160, 184, 0.3)' },
-            },
+            axisName: { color: '#a0a0b8', fontSize: 11 },
+            splitArea: { areaStyle: { color: ['rgba(15, 52, 96, 0.3)', 'rgba(15, 52, 96, 0.15)'] } },
+            splitLine: { lineStyle: { color: 'rgba(160, 160, 184, 0.2)' } },
+            axisLine: { lineStyle: { color: 'rgba(160, 160, 184, 0.3)' } },
         },
-        series: [{
-            type: 'radar',
-            data: seriesData,
-        }],
+        series: [{ type: 'radar', data: seriesData }],
     };
 
     currentChart.setOption(option);
@@ -577,21 +593,21 @@ function renderRadarChart(data) {
 // 4. Ranking bar chart (top 10)
 // ---------------------------------------------------------------------------
 
-function renderRankingChart(data) {
+function renderRankingChart(data, provinces) {
     var rankings = data.ranking.rankings;
 
     var sorted = rankings.slice().sort(function (a, b) {
         return b.score - a.score;
     });
-    var top10 = sorted.slice(0, 10);
+    var all = sorted; // All 31 provinces
 
     var yData = [];
     var xData = [];
     var barColors = [];
 
-    for (var i = 0; i < top10.length; i++) {
-        yData.push(top10[i].province);
-        xData.push(parseFloat(top10[i].score.toFixed(2)));
+    for (var i = 0; i < all.length; i++) {
+        yData.push(all[i].province);
+        xData.push(parseFloat(all[i].score.toFixed(2)));
         if (i === 0) {
             barColors.push(RANK_GOLD);
         } else if (i === 1) {
@@ -603,14 +619,48 @@ function renderRankingChart(data) {
         }
     }
 
+    // Reverse so best (rank 1) is at top
     yData.reverse();
     xData.reverse();
     barColors.reverse();
 
+    // Helper: fuzzy match province name in yData
+    function findProvinceIndex(name, dataArray) {
+        // Exact match first
+        var idx = dataArray.indexOf(name);
+        if (idx >= 0) return idx;
+        // Try without suffix (e.g. "广东" matches "广东省")
+        var short = name.replace(/省|市|自治区|壮族|回族|维吾尔/g, '');
+        for (var fi = 0; fi < dataArray.length; fi++) {
+            if (dataArray[fi].indexOf(short) === 0) return fi;
+        }
+        // Try contains
+        for (var fj = 0; fj < dataArray.length; fj++) {
+            if (dataArray[fj].indexOf(name) >= 0 || name.indexOf(dataArray[fj]) >= 0) return fj;
+        }
+        return -1;
+    }
+
+    // Calculate dataZoom — default show top ~10 provinces
+    var viewRange = 32; // ~10 provinces out of 31
+    var dzStart = 100 - viewRange;
+    var dzEnd = 100;
+    if (provinces && provinces.length) {
+        for (var pi = 0; pi < provinces.length; pi++) {
+            var idx = findProvinceIndex(provinces[pi], yData);
+            if (idx >= 0) {
+                var pct = (idx / (yData.length - 1)) * 100;
+                dzStart = Math.max(0, pct - viewRange / 2);
+                dzEnd = Math.min(100, pct + viewRange / 2);
+                break;
+            }
+        }
+    }
+
     var option = {
         backgroundColor: '#1e2a45',
         title: {
-            text: '省域经济综合竞争力排名（前10）',
+            text: '省域经济综合竞争力排名（全部 31 省）',
             left: 'center',
             top: 16,
             textStyle: {
@@ -628,10 +678,10 @@ function renderRankingChart(data) {
             },
         },
         grid: {
-            left: 80,
-            right: 40,
+            left: 90,
+            right: 50,
             top: 60,
-            bottom: 40,
+            bottom: 60,
         },
         xAxis: {
             type: 'value',
@@ -642,10 +692,18 @@ function renderRankingChart(data) {
         yAxis: {
             type: 'category',
             data: yData,
-            axisLabel: { color: '#e0e0e0', fontSize: 12 },
+            axisLabel: { color: '#e0e0e0', fontSize: 11 },
             axisLine: { lineStyle: { color: '#2a3a5c' } },
             axisTick: { show: false },
         },
+        dataZoom: [{
+            type: 'slider',
+            yAxisIndex: 0,
+            start: dzStart,
+            end: dzEnd,
+            width: 20,
+            right: 4,
+        }],
         series: [{
             type: 'bar',
             data: xData.map(function (val, idx) {
@@ -657,18 +715,38 @@ function renderRankingChart(data) {
                     },
                 };
             }),
-            barWidth: '60%',
+            barWidth: '50%',
             label: {
                 show: true,
                 position: 'right',
                 color: '#a0a0b8',
-                fontSize: 11,
+                fontSize: 10,
                 formatter: '{c} 分',
             },
         }],
     };
 
     currentChart.setOption(option);
+
+    // Fallback: dispatch dataZoom to ensure scroll takes effect after render
+    if (provinces && provinces.length) {
+        var targetIdx2 = null;
+        for (var si = 0; si < provinces.length; si++) {
+            var t2 = findProvinceIndex(provinces[si], yData);
+            if (t2 >= 0) { targetIdx2 = t2; break; }
+        }
+        if (targetIdx2 !== null) {
+            var tpct2 = (targetIdx2 / (yData.length - 1)) * 100;
+            setTimeout(function() {
+                currentChart.dispatchAction({
+                    type: 'dataZoom',
+                    dataZoomIndex: 0,
+                    start: Math.max(0, tpct2 - viewRange / 2),
+                    end: Math.min(100, tpct2 + viewRange / 2),
+                });
+            }, 50);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -689,7 +767,7 @@ function fetchTrendData() {
         });
 }
 
-function renderTrendChart() {
+function renderTrendChart(provinces) {
     if (!trendData) {
         currentChart.setOption({
             backgroundColor: '#1e2a45',
@@ -701,7 +779,7 @@ function renderTrendChart() {
 
     var years = trendData.years;
     var series = trendData.series;
-    var provinces = trendData.provinces;
+    var allProvinces = trendData.provinces;
 
     // Build a map: province -> {year: score}
     var dataMap = {};
@@ -711,30 +789,53 @@ function renderTrendChart() {
         dataMap[s.province][s.year] = s.score;
     }
 
-    // Find top 5 provinces by latest year score
     var latestYear = years[years.length - 1];
-    var provinceScores = [];
-    for (var p = 0; p < provinces.length; p++) {
-        var name = provinces[p];
-        var score = dataMap[name] && dataMap[name][latestYear] ? dataMap[name][latestYear] : 0;
-        provinceScores.push({ name: name, score: score });
-    }
-    provinceScores.sort(function (a, b) { return b.score - a.score; });
-    var top5 = provinceScores.slice(0, 5).map(function (x) { return x.name; });
-    var top5Set = {};
-    for (var t = 0; t < top5.length; t++) top5Set[top5[t]] = true;
 
-    // Build series data for ECharts
+    // Determine which provinces are selected by default
+    var selectedSet = {};
+    var titleText;
+    if (provinces && provinces.length) {
+        for (var p = 0; p < provinces.length; p++) {
+            if (dataMap[provinces[p]]) {
+                selectedSet[provinces[p]] = true;
+            }
+        }
+        if (Object.keys(selectedSet).length === 0) {
+            var scoresFb = [];
+            for (var a = 0; a < allProvinces.length; a++) {
+                var n = allProvinces[a];
+                scoresFb.push({ name: n, score: dataMap[n] && dataMap[n][latestYear] ? dataMap[n][latestYear] : 0 });
+            }
+            scoresFb.sort(function (a, b) { return b.score - a.score; });
+            var fbTop2 = scoresFb.slice(0, 5).map(function (x) { return x.name; });
+            for (var fi = 0; fi < fbTop2.length; fi++) { selectedSet[fbTop2[fi]] = true; }
+        }
+        titleText = '省份竞争力趋势图（默认显示: ' + Object.keys(selectedSet).join('/') + '，点击图例切换）';
+    } else {
+        var scoresDef = [];
+        for (var b = 0; b < allProvinces.length; b++) {
+            var n2 = allProvinces[b];
+            scoresDef.push({ name: n2, score: dataMap[n2] && dataMap[n2][latestYear] ? dataMap[n2][latestYear] : 0 });
+        }
+        scoresDef.sort(function (a, b) { return b.score - a.score; });
+        var defaultTop5 = scoresDef.slice(0, 5).map(function (x) { return x.name; });
+        for (var di = 0; di < defaultTop5.length; di++) { selectedSet[defaultTop5[di]] = true; }
+        titleText = '省份竞争力趋势图（默认前5名，点击图例切换）';
+    }
+
+    // Build series data for ALL provinces, default-select only specified ones
     var echartsSeries = [];
     var legendData = [];
-    for (var p2 = 0; p2 < provinces.length; p2++) {
-        var prov = provinces[p2];
+    var legendSelected = {};
+    for (var p2 = 0; p2 < allProvinces.length; p2++) {
+        var prov = allProvinces[p2];
         var lineData = [];
         for (var y = 0; y < years.length; y++) {
             var val = dataMap[prov] && dataMap[prov][years[y]] !== undefined ? dataMap[prov][years[y]] : null;
             lineData.push(val);
         }
         legendData.push(prov);
+        legendSelected[prov] = !!selectedSet[prov];
         echartsSeries.push({
             name: prov,
             type: 'line',
@@ -746,19 +847,12 @@ function renderTrendChart() {
         });
     }
 
-    // Build legend.selected -- only top5 visible initially
-    var legendSelected = {};
-    for (var p3 = 0; p3 < provinces.length; p3++) {
-        legendSelected[provinces[p3]] = !!top5Set[provinces[p3]];
-    }
-
     var option = {
         backgroundColor: '#1e2a45',
         color: PROVINCE_PALETTE,
         title: {
-            text: '省份竞争力趋势图（点击图例切换显示）',
-            left: 'center',
-            top: 16,
+            text: titleText,
+            left: 'center', top: 16,
             textStyle: { color: '#e0e0e0', fontSize: 18, fontWeight: 600 }
         },
         tooltip: {
@@ -797,8 +891,62 @@ function renderTrendChart() {
 }
 
 // ---------------------------------------------------------------------------
-// Chat bar
+// Chat — multi-turn, SSE streaming, Markdown + KaTeX, persistent during session
 // ---------------------------------------------------------------------------
+
+var chatHistory = [];   // API history [{role, content}]
+var chatMessages = [];  // UI state [{role, content, elementId}]
+var chatCollapsed = true; // Start collapsed
+var chatStreaming = false;
+var sessionId = '';
+var sseRetryCount = 0;
+var sseMaxRetries = 3;
+
+// Session persistence: generate or restore session ID
+function initSession() {
+    var stored = sessionStorage.getItem('pe_session_id');
+    if (stored) {
+        sessionId = stored;
+    } else {
+        sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+        sessionStorage.setItem('pe_session_id', sessionId);
+    }
+    // Restore chat messages from last session
+    var savedMsgs = sessionStorage.getItem('pe_chat_messages');
+    if (savedMsgs) {
+        try {
+            var parsed = JSON.parse(savedMsgs);
+            if (Array.isArray(parsed)) {
+                chatMessages = parsed.slice(-20);
+                chatHistory = chatMessages.filter(function (m) { return m.role && m.content; });
+            }
+        } catch (e) { /* ignore corrupt data */ }
+    }
+    // Show chat toggle button if there are restored messages
+    if (chatMessages.length > 0) {
+        document.getElementById('chat-toggle').style.display = 'flex';
+        updateChatToggle();
+    }
+}
+
+function saveSession() {
+    try {
+        sessionStorage.setItem('pe_chat_messages', JSON.stringify(chatMessages.slice(-20)));
+    } catch (e) { /* quota exceeded, ignore */ }
+}
+
+// Resize chart section to fill the viewport
+function resizeChartSection() {
+    var section = document.getElementById('chart-section');
+    if (!section) return;
+    // viewport height - sidebar is handled by flex, we just need the wrapper height
+    var wrapper = document.getElementById('scroll-wrapper');
+    if (wrapper) {
+        var h = wrapper.clientHeight;
+        section.style.height = h + 'px';
+        section.style.minHeight = h + 'px';
+    }
+}
 
 function setupChatBar() {
     var input = document.getElementById('chat-input');
@@ -813,7 +961,391 @@ function setupChatBar() {
 }
 
 function handleChatSend() {
-    showToast('Agent 功能开发中，敬请期待...');
+    if (chatStreaming) return;
+
+    var input = document.getElementById('chat-input');
+    var sendBtn = document.getElementById('send-btn');
+    var message = input.value.trim();
+    if (!message) return;
+
+    input.value = '';
+
+    // Expand chat if collapsed
+    if (chatCollapsed) {
+        expandChat();
+    }
+
+    // Add user message
+    appendChatBubble('user', message);
+
+    // Add empty AI bubble
+    var aiBubbleId = appendChatBubble('ai', '');
+
+    chatStreaming = true;
+    input.disabled = true;
+    sendBtn.disabled = true;
+    sendBtn.textContent = '思考中...';
+
+    var fullText = '';
+    var aiEl = document.getElementById(aiBubbleId);
+
+    fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message, history: chatHistory, session_id: sessionId }),
+    })
+    .then(function (response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+
+        function read() {
+            reader.read().then(function (result) {
+                if (result.done) {
+                    finishChat(fullText);
+                    return;
+                }
+                buffer += decoder.decode(result.value, { stream: true });
+
+                var lines = buffer.split('\n');
+                buffer = '';
+
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i];
+                    if (line.startsWith('event: ')) {
+                        var eventType = line.substring(7).trim();
+                        var dataLine = '';
+                        for (var j = i + 1; j < lines.length; j++) {
+                            if (lines[j].startsWith('data: ')) {
+                                dataLine = lines[j].substring(6);
+                                break;
+                            }
+                        }
+                        if (!dataLine) {
+                            buffer = lines.slice(i).join('\n');
+                            break;
+                        }
+
+                        try { var data = JSON.parse(dataLine); } catch (e) { continue; }
+
+                        if (eventType === 'token' && data.text) {
+                            fullText += data.text;
+                            aiEl.innerHTML = renderMd(fullText);
+                            renderKaTeX(aiEl);
+                            scrollChat();
+                        } else if (eventType === 'tool') {
+                            // Handle show_chart: switch UI to show the chart
+                            if (data.name === 'show_chart' && data.input) {
+                                var chartType = data.input.chart_type || 'ranking';
+                                var chartYear = data.input.year || currentYear;
+                                var provinces = data.input.provinces || null;
+                                // Switch year if different
+                                if (chartYear !== currentYear) {
+                                    pendingProvinces = provinces;
+                                    pendingChartType = chartType;
+                                    var yearSelect = document.getElementById('year-select');
+                                    if (yearSelect) {
+                                        yearSelect.value = chartYear;
+                                        fetchData(chartYear);
+                                    }
+                                } else {
+                                    // Switch chart silently in background (don't collapse chat)
+                                    _origSwitchChart(chartType, provinces);
+                                    resizeChartSection();
+                                }
+                                aiEl.innerHTML = renderMd(fullText);
+                                scrollChat();
+                            } else {
+                                var toolInfo = '[调用工具: ' + data.name + ']';
+                                aiEl.innerHTML = renderMd(fullText) + '<div class="tool-call">' + escapeHtml(toolInfo) + '</div>';
+                                scrollChat();
+                            }
+                        } else if (eventType === 'error') {
+                            fullText = data.text || '发生错误';
+                            aiEl.innerHTML = '<div class="chat-error">' + escapeHtml(fullText) + '</div>';
+                        }
+                    }
+                }
+
+                read();
+            }).catch(function (err) {
+                if (sseRetryCount < sseMaxRetries) {
+                    sseRetryCount++;
+                    var waitMs = 500 * Math.pow(2, sseRetryCount - 1);
+                    aiEl.innerHTML = renderMd(fullText) + '<div class="tool-call">连接中断，正在重连 (' + sseRetryCount + '/' + sseMaxRetries + ')...</div>';
+                    setTimeout(function () {
+                        sseRetry(aiEl, aiBubbleId, message);
+                    }, waitMs);
+                } else {
+                    if (!fullText) {
+                        aiEl.innerHTML = '<div class="chat-error">连接中断，请重试</div>';
+                    }
+                    sseRetryCount = 0;
+                    finishChat(fullText);
+                }
+            });
+
+        function sseRetry(aiEl, aiBubbleId, message) {
+            var fullText2 = '';
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message, history: chatHistory, session_id: sessionId }),
+            })
+            .then(function (resp2) {
+                if (!resp2.ok) throw new Error('HTTP ' + resp2.status);
+                var reader2 = resp2.body.getReader();
+                var decoder2 = new TextDecoder();
+                var buffer2 = '';
+
+                function read2() {
+                    reader2.read().then(function (result2) {
+                        if (result2.done) {
+                            sseRetryCount = 0;
+                            finishChat(fullText2);
+                            return;
+                        }
+                        buffer2 += decoder2.decode(result2.value, { stream: true });
+                        var lines2 = buffer2.split('\n');
+                        buffer2 = '';
+                        for (var li = 0; li < lines2.length; li++) {
+                            var l2 = lines2[li];
+                            if (l2.startsWith('event: ')) {
+                                var et2 = l2.substring(7).trim();
+                                var dl2 = '';
+                                for (var lj = li + 1; lj < lines2.length; lj++) {
+                                    if (lines2[lj].startsWith('data: ')) { dl2 = lines2[lj].substring(6); break; }
+                                }
+                                if (!dl2) { buffer2 = lines2.slice(li).join('\n'); break; }
+                                try { var d2 = JSON.parse(dl2); } catch (e) { continue; }
+                                if (et2 === 'token' && d2.text) {
+                                    fullText2 += d2.text;
+                                    aiEl.innerHTML = renderMd(fullText2);
+                                    renderKaTeX(aiEl);
+                                    scrollChat();
+                                } else if (et2 === 'tool' && d2.name === 'show_chart' && d2.input) {
+                                    var ct = d2.input.chart_type || 'ranking';
+                                    var cy = d2.input.year || currentYear;
+                                    var cp = d2.input.provinces || null;
+                                    if (cy !== currentYear) {
+                                        pendingProvinces = cp;
+                                        pendingChartType = ct;
+                                        var ys = document.getElementById('year-select');
+                                        if (ys) { ys.value = cy; fetchData(cy); }
+                                    } else {
+                                        _origSwitchChart(ct, cp);
+                                        resizeChartSection();
+                                    }
+                                    aiEl.innerHTML = renderMd(fullText2);
+                                    scrollChat();
+                                } else if (et2 === 'tool') {
+                                    aiEl.innerHTML = renderMd(fullText2) + '<div class="tool-call">[调用工具: ' + escapeHtml(d2.name) + ']</div>';
+                                    scrollChat();
+                                } else if (et2 === 'error') {
+                                    fullText2 = d2.text || '发生错误';
+                                    aiEl.innerHTML = '<div class="chat-error">' + escapeHtml(fullText2) + '</div>';
+                                }
+                            }
+                        }
+                        read2();
+                    }).catch(function (err2) {
+                        if (sseRetryCount < sseMaxRetries) {
+                            sseRetryCount++;
+                            var w2 = 500 * Math.pow(2, sseRetryCount - 1);
+                            aiEl.innerHTML = renderMd(fullText2) + '<div class="tool-call">重连失败 (' + sseRetryCount + '/' + sseMaxRetries + ')...</div>';
+                            setTimeout(function () { sseRetry(aiEl, aiBubbleId, message); }, w2);
+                        } else {
+                            aiEl.innerHTML = '<div class="chat-error">连接中断，请重试</div>';
+                            sseRetryCount = 0;
+                            finishChat(fullText2);
+                        }
+                    });
+                }
+                read2();
+            })
+            .catch(function (err2) {
+                sseRetryCount = 0;
+                aiEl.innerHTML = '<div class="chat-error">重连失败，请刷新重试</div>';
+                finishChat(fullText2);
+            });
+        }
+        }
+
+        read();
+    })
+    .catch(function (err) {
+        aiEl.innerHTML = '<div class="chat-error">请求失败</div>';
+        finishChat(fullText);
+    });
+
+    function finishChat(text) {
+        chatHistory.push({ role: 'user', content: message });
+        if (text) {
+            chatHistory.push({ role: 'assistant', content: text });
+        }
+        if (chatHistory.length > 20) {
+            chatHistory = chatHistory.slice(-20);
+        }
+        chatMessages.push({ role: 'user', content: message });
+        chatMessages.push({ role: 'assistant', content: text });
+        saveSession();
+
+        // Final KaTeX render
+        renderKaTeX(aiEl);
+
+        chatStreaming = false;
+        input.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.textContent = '发送';
+        input.focus();
+        updateChatToggle();
+    }
+}
+
+// Collapse / expand chat panel
+function collapseChat() {
+    chatCollapsed = true;
+    document.getElementById('chat-panel').classList.add('collapsed');
+    document.getElementById('chat-toggle').style.display = 'flex';
+    updateChatToggle();
+    resizeChartSection();
+    // Scroll wrapper back to top to show chart
+    document.getElementById('scroll-wrapper').scrollTop = 0;
+}
+
+function expandChat() {
+    chatCollapsed = false;
+    document.getElementById('chat-panel').classList.remove('collapsed');
+    document.getElementById('chat-toggle').style.display = 'none';
+    // Chart keeps its full height, chat appears below
+    scrollChat();
+}
+
+function updateChatToggle() {
+    var count = chatMessages.length;
+    var countEl = document.getElementById('chat-toggle-count');
+    if (countEl) {
+        countEl.textContent = count > 0 ? count + ' 条对话' : '';
+    }
+}
+
+// Override switchChart to collapse chat when switching charts/years
+var _origSwitchChart = switchChart;
+switchChart = function (type, provinces) {
+    if (chatMessages.length > 0 && !chatCollapsed) {
+        collapseChat();
+    }
+    _origSwitchChart(type, provinces);
+    resizeChartSection();
+};
+
+function appendChatBubble(role, content) {
+    var panel = document.getElementById('chat-messages');
+    if (!panel) return '';
+
+    var bubbleId = 'bubble-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+
+    var wrapper = document.createElement('div');
+    if (role === 'user') {
+        wrapper.className = 'chat-question';
+        wrapper.innerHTML =
+            '<span class="chat-avatar chat-avatar-user">你</span>' +
+            '<div class="chat-bubble chat-bubble-user">' + escapeHtml(content) + '</div>';
+    } else {
+        wrapper.className = 'chat-answer';
+        wrapper.innerHTML =
+            '<span class="chat-avatar chat-avatar-ai">AI</span>' +
+            '<div class="chat-bubble chat-bubble-ai" id="' + bubbleId + '">' +
+            (content ? renderMd(content) : '<span class="chat-cursor">▌</span>') +
+            '</div>';
+    }
+
+    panel.appendChild(wrapper);
+    scrollChat();
+    return bubbleId;
+}
+
+function scrollChat() {
+    var wrapper = document.getElementById('scroll-wrapper');
+    if (wrapper) {
+        wrapper.scrollTop = wrapper.scrollHeight;
+    }
+}
+
+// Markdown + KaTeX rendering
+function renderMd(text) {
+    // Protect LaTeX from marked.js mangling
+    var latexBlocks = [];
+    var protected_ = text;
+
+    // Protect $$...$$ (display math)
+    protected_ = protected_.replace(/\$\$([\s\S]*?)\$\$/g, function (m) {
+        latexBlocks.push({ display: true, content: m.slice(2, -2) });
+        return 'LATEXBLOCK' + (latexBlocks.length - 1) + 'END';
+    });
+
+    // Protect $...$ (inline math)
+    protected_ = protected_.replace(/\$([^\$\n]+?)\$/g, function (m) {
+        latexBlocks.push({ display: false, content: m.slice(1, -1) });
+        return 'LATEXBLOCK' + (latexBlocks.length - 1) + 'END';
+    });
+
+    // Protect \[...\] (display math)
+    protected_ = protected_.replace(/\\\[([\s\S]*?)\\\]/g, function (m) {
+        latexBlocks.push({ display: true, content: m.slice(2, -2) });
+        return 'LATEXBLOCK' + (latexBlocks.length - 1) + 'END';
+    });
+
+    // Protect \(...\) (inline math)
+    protected_ = protected_.replace(/\\\(([\s\S]*?)\\\)/g, function (m) {
+        latexBlocks.push({ display: false, content: m.slice(2, -2) });
+        return 'LATEXBLOCK' + (latexBlocks.length - 1) + 'END';
+    });
+
+    // Render markdown
+    var html;
+    if (typeof marked !== 'undefined' && marked.parse) {
+        try { html = marked.parse(protected_); } catch (e) { html = escapeHtml(protected_); }
+    } else {
+        html = escapeHtml(protected_);
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\n/g, '<br>');
+    }
+
+    // Restore LaTeX placeholders
+    html = html.replace(/LATEXBLOCK(\d+)END/g, function (m, idx) {
+        var block = latexBlocks[parseInt(idx)];
+        if (!block) return '';
+        try {
+            return katex.renderToString(block.content, {
+                displayMode: block.display,
+                throwOnError: false,
+            });
+        } catch (e) {
+            return escapeHtml(block.content);
+        }
+    });
+
+    return html;
+}
+
+// Re-render KaTeX in a DOM element (for already-rendered markdown)
+function renderKaTeX(el) {
+    if (typeof renderMathInElement === 'function') {
+        try {
+            renderMathInElement(el, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\[', right: '\\]', display: true },
+                    { left: '\\(', right: '\\)', display: false },
+                ],
+                throwOnError: false,
+            });
+        } catch (e) { /* ignore */ }
+    }
 }
 
 function showToast(message) {
